@@ -71,7 +71,11 @@ def parse_fit(data: bytes):
     fit = fitparse.FitFile(io.BytesIO(data))
     records, laps, session, activity, file_id = [], [], None, None, None
 
-    for msg in fit.get_messages():
+    # Only parse the message types we actually use. Garmin files can contain
+    # tens of thousands of gps_metadata/hrv messages that we don't read;
+    # skipping them cuts parse time dramatically on slow hardware.
+    wanted = ["record", "lap", "session", "activity", "file_id"]
+    for msg in fit.get_messages(wanted):
         n = msg.name
         if n == "record":
             ts = get_field(msg, "timestamp")
