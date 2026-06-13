@@ -246,8 +246,17 @@ function resetUI() {
 }
 
 // ── Poll ─────────────────────────────────────────────────────────────────────
-function pollJob(jobId, onDone, onError) {
+function pollJob(jobId, onDone, onError, onTick) {
+  const MAX_WAIT_MS = 300000; // 5 minutes max
+  const started = Date.now();
   const iv = setInterval(async () => {
+    const elapsed = Math.round((Date.now() - started) / 1000);
+    if (onTick) onTick(elapsed);
+    if (Date.now() - started > MAX_WAIT_MS) {
+      clearInterval(iv);
+      onError('Timed out after 5 minutes. Try uploading again.');
+      return;
+    }
     try {
       const res = await fetch(`${API}/status/${jobId}`);
       const d = await res.json();
@@ -271,7 +280,7 @@ async function handleFile(file) {
     if (!res.ok) throw new Error(d.error || `HTTP ${res.status}`);
     jobId = d.job_id;
   } catch(err) { setStatus(`Upload failed: ${err.message}`, 'error'); return; }
-  setStatus('Analysing… may take 20–40 s on first run');
+  setStatus('Analysing… may take 20–40 s on first run (0s)');
   pollJob(jobId, data => {
     analysisData = data;
     document.getElementById('s-records').textContent = data.num_records.toLocaleString();
@@ -281,7 +290,8 @@ async function handleFile(file) {
     summaryEl.style.display = 'block';
     if (!data.gaps.length) { setStatus('No gaps detected.', 'ok'); return; }
     clearStatus(); renderGaps(data.gaps);
-  }, err => setStatus(`Analysis failed: ${err}`, 'error'));
+  }, err => setStatus(`Analysis failed: ${err}`, 'error'),
+  elapsed => setStatus(`Analysing… ${elapsed}s`, 'loading'));
 }
 
 // ── Render gaps ──────────────────────────────────────────────────────────────
@@ -319,6 +329,7 @@ function renderGaps(gaps) {
             <div class="input-grid">
               <div>
                 <label class="field-label">Stopped time (min)</label>
+                <span class="field-hint">Adjusts average riding speed</span>
                 <input type="number" id="stop-${i}" class="inp-stop" data-idx="${i}"
                   min="0" max="${(g.time_gap_s/60).toFixed(1)}" step="0.5" value="0">
               </div>
@@ -383,7 +394,13 @@ function renderGaps(gaps) {
     cb.addEventListener('change', () => {
       card.className = `gap-card ${cb.checked?'included':'excluded'}`;
       updateRepairButton();
-      if (cb.checked) setTimeout(() => initMap(i, g), 50);
+      if (cb.checked) {
+        setTimeout(() => {
+          initMap(i, g);
+          // Invalidate size in case map was init'd while hidden
+          if (gapMaps[i]) gapMaps[i].map.invalidateSize();
+        }, 100);
+      }
     });
     card.querySelector('.gap-card-header').addEventListener('click', e => {
       if (e.target === cb) return;
@@ -410,8 +427,9 @@ function renderGaps(gaps) {
       if (elevCb.checked) fetchElevation(i, g);
     });
 
-    // Init map for recording gaps (already visible)
-    if (isRecGap) setTimeout(() => initMap(i, g), 100);
+    // Init map for visible (included) gaps immediately
+    // Hidden gaps init on first open via checkbox handler
+    if (isRecGap) setTimeout(() => initMap(i, g), 100 + i * 50);
   });
 
   gapsSect.style.display = 'block';
@@ -447,6 +465,9 @@ function initMap(i, g) {
   L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
     attribution: '© OpenStreetMap contributors', maxZoom: 19
   }).addTo(map);
+
+  // Invalidate size after container is fully laid out
+  setTimeout(() => map.invalidateSize(), 200);
 
   // Force crosshair cursor — Leaflet overrides CSS so must be set via JS
   map.getContainer().style.cursor = 'crosshair';
@@ -735,23 +756,37 @@ btnRepair.addEventListener('click', async () => {
     btnRepair.disabled = false; btnRepair.textContent = 'Repair FIT file'; return;
   }
 
-  btnRepair.innerHTML = '<span class="spinner"></span>Repairing…';
+  btnRepair.innerHTML = '<span class="spinner"></span>Repairing… 0s';
 
   pollJob(jobId,
-    data => {
+    async data => {
       btnRepair.disabled = false; btnRepair.textContent = 'Repair FIT file';
       document.getElementById('r-orig').textContent  = (data.original_dist_km ?? '?') + ' km';
       document.getElementById('r-added').textContent = '+' + (data.added_dist_km ?? '?') + ' km';
       document.getElementById('r-total').textContent = (data.new_dist_km ?? '?') + ' km';
-      btnDl.href = `${API}/download/${jobId}`;
-      btnDl.download = data.out_name || 'repaired.fit';
-      btnDl.textContent = `⬇ Download ${data.out_name || 'repaired.fit'}`;
+      // Fetch file as blob to avoid page navigation on mobile
+      try {
+        const res = await fetch(`${API}/download/${jobId}`);
+        const blob = await res.blob();
+        const url = URL.createObjectURL(blob);
+        const outName = data.out_name || 'repaired.fit';
+        btnDl.href = url;
+        btnDl.download = outName;
+        btnDl.textContent = `⬇ Download ${outName}`;
+      } catch(err) {
+        // Fallback to direct link
+        btnDl.href = `${API}/download/${jobId}`;
+        btnDl.textContent = `⬇ Download repaired file`;
+      }
       resultSect.style.display = 'block';
       resultSect.scrollIntoView({ behavior:'smooth', block:'nearest' });
     },
     err => {
       btnRepair.disabled = false; btnRepair.textContent = 'Repair FIT file';
       setStatus(`Repair failed: ${err}`, 'error');
+    },
+    elapsed => {
+      btnRepair.innerHTML = `<span class="spinner"></span>Repairing… ${elapsed}s`;
     }
   );
 });
