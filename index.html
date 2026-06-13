@@ -111,6 +111,9 @@
   .map-container{height:280px;width:100%}
   .map-instructions{font-size:11px;color:var(--muted);padding:6px 10px;background:var(--surface);border-top:1px solid var(--border)}
   .map-instructions b{color:var(--text-2)}
+  .map-propose-btn{font-size:11px;padding:3px 8px;border-radius:4px;border:none;background:var(--accent);color:#fff;cursor:pointer;font-weight:500;transition:opacity .1s;margin-right:2px}
+  .map-propose-btn:hover{opacity:.85}
+  .map-propose-btn:disabled{opacity:.5;cursor:not-allowed}
   .map-snap-btn{font-size:11px;padding:3px 8px;border-radius:4px;border:1px solid var(--accent-border);background:var(--accent-bg);color:var(--accent);cursor:pointer;font-weight:500;transition:background .1s}
   .map-snap-btn:hover{background:#dbeafe}
   .map-snap-btn:disabled{opacity:.5;cursor:not-allowed}
@@ -330,12 +333,13 @@ function renderGaps(gaps) {
               <div class="map-title">
                 <span>Route through gap</span>
                 <span>
-                  <button class="map-snap-btn" id="snap-btn-${i}">Snap to road</button>
+                  <button class="map-propose-btn" id="propose-btn-${i}">Propose route</button>
+                  <button class="map-snap-btn" id="snap-btn-${i}">Snap waypoints</button>
                   <button class="map-clear-btn" id="clear-btn-${i}">Clear</button>
                 </span>
               </div>
               <div class="map-container" id="map-${i}"></div>
-              <div class="map-instructions"><b>Click</b> on the map to add waypoints for the missing route</div>
+              <div class="map-instructions"><b>Propose route</b> for automatic routing · or <b>click map</b> to place waypoints · <b>Snap waypoints</b> to road-align them</div>
               <div class="map-status" id="map-status-${i}"></div>
             </div>
           </div>
@@ -365,6 +369,7 @@ function renderGaps(gaps) {
     updatePreview(i, g);
 
     // Snap & clear buttons
+    document.getElementById(`propose-btn-${i}`).addEventListener('click', () => proposeRoute(i, g));
     document.getElementById(`snap-btn-${i}`).addEventListener('click', () => snapToRoad(i, g));
     document.getElementById(`clear-btn-${i}`).addEventListener('click', () => clearWaypoints(i, g));
 
@@ -504,6 +509,49 @@ function clearWaypoints(i, g) {
   setMapStatus(i, '');
 }
 
+async function proposeRoute(i, g) {
+  // Auto-route directly from gap start to gap end — no user waypoints needed
+  const state = gapMaps[i];
+  if (!state) return;
+  const proposeBtn = document.getElementById(`propose-btn-${i}`);
+  proposeBtn.disabled = true; proposeBtn.textContent = 'Routing…';
+  setMapStatus(i, 'Fetching road route…');
+
+  try {
+    const res = await fetch('https://api.openrouteservice.org/v2/directions/cycling-road/geojson', {
+      method: 'POST',
+      headers: { 'Authorization': 'Bearer ' + ORS_KEY, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ coordinates: [[g.lon_before, g.lat_before], [g.lon_after, g.lat_after]] })
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.error?.message || `ORS HTTP ${res.status}`);
+    }
+    const data = await res.json();
+    const orsCoords = data.features[0].geometry.coordinates;
+    const latLons = orsCoords.map(c => [c[1], c[0]]);
+
+    // Clear existing drawn route/waypoints
+    if (state.routeLayer)    { state.map.removeLayer(state.routeLayer);    }
+    if (state.userPathLayer) { state.map.removeLayer(state.userPathLayer); state.userPathLayer = null; }
+    state.waypointMarkers.forEach(m => state.map.removeLayer(m));
+    state.waypointMarkers = []; state.waypoints = [];
+
+    state.routeCoords = latLons;
+    state.routeLayer  = L.polyline(latLons, {color:'#16a34a', weight:4, opacity:.9}).addTo(state.map);
+    state.map.fitBounds(state.routeLayer.getBounds(), {padding:[20,20]});
+
+    const dist = pathLengthM(latLons);
+    const distInp = document.getElementById(`dist-${i}`);
+    if (distInp) { distInp.value = Math.round(dist); updatePreview(i, g); }
+
+    setMapStatus(i, `✓ Road route: ${(dist/1000).toFixed(2)} km — click map to add waypoints and refine`);
+  } catch(err) {
+    setMapStatus(i, `Routing failed: ${err.message}. Try adding waypoints manually then use Snap.`);
+  }
+  proposeBtn.disabled = false; proposeBtn.textContent = 'Propose route';
+}
+
 async function snapToRoad(i, g) {
   const state = gapMaps[i];
   if (!state) return;
@@ -521,7 +569,7 @@ async function snapToRoad(i, g) {
   try {
     const res = await fetch('https://api.openrouteservice.org/v2/directions/cycling-road/geojson', {
       method: 'POST',
-      headers: { 'Authorization': ORS_KEY, 'Content-Type': 'application/json' },
+      headers: { 'Authorization': 'Bearer ' + ORS_KEY, 'Content-Type': 'application/json' },
       body: JSON.stringify({ coordinates: coords })
     });
     if (!res.ok) throw new Error(`ORS HTTP ${res.status}`);
