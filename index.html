@@ -509,47 +509,67 @@ function clearWaypoints(i, g) {
   setMapStatus(i, '');
 }
 
+async function orsRoute(profile, coords) {
+  const res = await fetch(`https://api.openrouteservice.org/v2/directions/${profile}/geojson`, {
+    method: 'POST',
+    headers: { 'Authorization': 'Bearer ' + ORS_KEY, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ coordinates: coords })
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error?.message || `ORS HTTP ${res.status}`);
+  }
+  const data = await res.json();
+  return data.features[0].geometry.coordinates.map(c => [c[1], c[0]]);
+}
+
 async function proposeRoute(i, g) {
-  // Auto-route directly from gap start to gap end — no user waypoints needed
   const state = gapMaps[i];
   if (!state) return;
   const proposeBtn = document.getElementById(`propose-btn-${i}`);
-  proposeBtn.disabled = true; proposeBtn.textContent = 'Routing…';
-  setMapStatus(i, 'Fetching road route…');
+  proposeBtn.disabled = true;
+  setMapStatus(i, 'Trying cycling route…');
 
-  try {
-    const res = await fetch('https://api.openrouteservice.org/v2/directions/cycling-road/geojson', {
-      method: 'POST',
-      headers: { 'Authorization': 'Bearer ' + ORS_KEY, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ coordinates: [[g.lon_before, g.lat_before], [g.lon_after, g.lat_after]] })
-    });
-    if (!res.ok) {
-      const err = await res.json().catch(() => ({}));
-      throw new Error(err.error?.message || `ORS HTTP ${res.status}`);
+  const coords = [[g.lon_before, g.lat_before], [g.lon_after, g.lat_after]];
+  let latLons = null;
+  let profileUsed = '';
+
+  // Try profiles in order: cycling-road → cycling-mountain → driving-car
+  const profiles = ['cycling-road', 'cycling-mountain', 'driving-car'];
+  for (const profile of profiles) {
+    proposeBtn.textContent = `Trying ${profile}…`;
+    setMapStatus(i, `Trying ${profile}…`);
+    try {
+      latLons = await orsRoute(profile, coords);
+      profileUsed = profile;
+      break;
+    } catch(err) {
+      if (profile === profiles[profiles.length - 1]) {
+        setMapStatus(i, `Routing failed on all profiles: ${err.message}. Place waypoints manually.`);
+        proposeBtn.disabled = false;
+        proposeBtn.textContent = 'Propose route';
+        return;
+      }
     }
-    const data = await res.json();
-    const orsCoords = data.features[0].geometry.coordinates;
-    const latLons = orsCoords.map(c => [c[1], c[0]]);
-
-    // Clear existing drawn route/waypoints
-    if (state.routeLayer)    { state.map.removeLayer(state.routeLayer);    }
-    if (state.userPathLayer) { state.map.removeLayer(state.userPathLayer); state.userPathLayer = null; }
-    state.waypointMarkers.forEach(m => state.map.removeLayer(m));
-    state.waypointMarkers = []; state.waypoints = [];
-
-    state.routeCoords = latLons;
-    state.routeLayer  = L.polyline(latLons, {color:'#16a34a', weight:4, opacity:.9}).addTo(state.map);
-    state.map.fitBounds(state.routeLayer.getBounds(), {padding:[20,20]});
-
-    const dist = pathLengthM(latLons);
-    const distInp = document.getElementById(`dist-${i}`);
-    if (distInp) { distInp.value = Math.round(dist); updatePreview(i, g); }
-
-    setMapStatus(i, `✓ Road route: ${(dist/1000).toFixed(2)} km — click map to add waypoints and refine`);
-  } catch(err) {
-    setMapStatus(i, `Routing failed: ${err.message}. Try adding waypoints manually then use Snap.`);
   }
-  proposeBtn.disabled = false; proposeBtn.textContent = 'Propose route';
+
+  // Clear existing
+  if (state.routeLayer)    { state.map.removeLayer(state.routeLayer);    }
+  if (state.userPathLayer) { state.map.removeLayer(state.userPathLayer); state.userPathLayer = null; }
+  state.waypointMarkers.forEach(m => state.map.removeLayer(m));
+  state.waypointMarkers = []; state.waypoints = [];
+
+  state.routeCoords = latLons;
+  state.routeLayer  = L.polyline(latLons, {color:'#16a34a', weight:4, opacity:.9}).addTo(state.map);
+  state.map.fitBounds(state.routeLayer.getBounds(), {padding:[20,20]});
+
+  const dist = pathLengthM(latLons);
+  const distInp = document.getElementById(`dist-${i}`);
+  if (distInp) { distInp.value = Math.round(dist); updatePreview(i, g); }
+
+  setMapStatus(i, `✓ ${profileUsed}: ${(dist/1000).toFixed(2)} km — click map to refine if needed`);
+  proposeBtn.disabled = false;
+  proposeBtn.textContent = 'Propose route';
 }
 
 async function snapToRoad(i, g) {
@@ -567,15 +587,12 @@ async function snapToRoad(i, g) {
   ];
 
   try {
-    const res = await fetch('https://api.openrouteservice.org/v2/directions/cycling-road/geojson', {
-      method: 'POST',
-      headers: { 'Authorization': 'Bearer ' + ORS_KEY, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ coordinates: coords })
-    });
-    if (!res.ok) throw new Error(`ORS HTTP ${res.status}`);
-    const data = await res.json();
-    const orsCoords = data.features[0].geometry.coordinates; // [lon,lat]
-    const latLons = orsCoords.map(c => [c[1], c[0]]);
+    // Try profiles in order for snap too
+    let latLons = null;
+    for (const profile of ['cycling-road','cycling-mountain','driving-car']) {
+      try { latLons = await orsRoute(profile, coords); break; }
+      catch(err) { if (profile==='driving-car') throw err; }
+    }
 
     // Remove old route/user path
     if (state.routeLayer)    { state.map.removeLayer(state.routeLayer);    }
@@ -589,8 +606,7 @@ async function snapToRoad(i, g) {
     const distInp = document.getElementById(`dist-${i}`);
     if (distInp) { distInp.value = Math.round(dist); updatePreview(i, g); }
 
-    const distKm = (dist/1000).toFixed(2);
-    setMapStatus(i, `✓ Road route: ${distKm} km (${orsCoords.length} points)`);
+    setMapStatus(i, `✓ Snapped route: ${(dist/1000).toFixed(2)} km`);
   } catch(err) {
     setMapStatus(i, `Routing failed: ${err.message}`);
   }
