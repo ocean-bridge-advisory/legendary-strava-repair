@@ -149,7 +149,7 @@ def gap_analysis(records, gap):
 
 # ── Synthetic records ─────────────────────────────────────────────────────────
 
-def build_synthetic_records(records, gap, stop_time_s, road_distance_m, avg_speed_ms, pre_avgs):
+def build_synthetic_records(records, gap, stop_time_s, road_distance_m, avg_speed_ms, pre_avgs, route_coords=None):
     r0 = records[gap['idx_before']]
     r1 = records[gap['idx_after']]
 
@@ -169,16 +169,37 @@ def build_synthetic_records(records, gap, stop_time_s, road_distance_m, avg_spee
     if n <= 0:
         return [], road_distance_m
 
+    # Build route interpolator
+    if route_coords and len(route_coords) >= 2:
+        cum = [0.0]
+        for j in range(1, len(route_coords)):
+            p0, p1 = route_coords[j-1], route_coords[j]
+            cum.append(cum[-1] + haversine_m(p0[0],p0[1],p1[0],p1[1]))
+        total_route_m = cum[-1]
+        def get_pos(ride_frac, linear_frac):
+            target = ride_frac * total_route_m
+            for j in range(1, len(cum)):
+                if cum[j] >= target or j == len(cum)-1:
+                    sf = (target - cum[j-1]) / max(1e-9, cum[j] - cum[j-1])
+                    sf = max(0.0, min(1.0, sf))
+                    p0, p1 = route_coords[j-1], route_coords[j]
+                    return p0[0]+sf*(p1[0]-p0[0]), p0[1]+sf*(p1[1]-p0[1])
+            return route_coords[-1][0], route_coords[-1][1]
+    else:
+        def get_pos(ride_frac, linear_frac):
+            f = linear_frac
+            return lat0+f*(lat1-lat0), lon0+f*(lon1-lon0)
+
     synth = []
     t0_ms = r0['timestamp_unix_ms']
     for i in range(1, n + 1):
         frac = i / (n + 1)
         ride_frac = max(0, (i - stop_time_s) / ride_time_s) if ride_time_s > 0 else 0
         ride_frac = min(ride_frac, 1.0)
+        lat, lon = get_pos(ride_frac, frac)
         synth.append({
             'timestamp_unix_ms': int(t0_ms + i * 1000),
-            'lat': lat0 + frac * (lat1 - lat0),
-            'lon': lon0 + frac * (lon1 - lon0),
+            'lat': lat, 'lon': lon,
             'distance': dist_start + ride_frac * road_distance_m,
             'speed': effective_speed_ms if i > stop_time_s else 0.0,
             'heart_rate': pre_avgs.get('heart_rate'),
@@ -295,15 +316,21 @@ def run_analyze(job_id, data):
         gap_list = []
         for g in gaps:
             analysis = gap_analysis(records, g)
-            crow_flies_m = round(g['gps_gap_m'], 0)
+            r0b = records[g['idx_before']]
+            r1b = records[g['idx_after']]
+            track_before = [[r['lat'],r['lon']] for r in records[max(0,g['idx_before']-99):g['idx_before']+1] if r.get('lat') is not None]
+            track_after  = [[r['lat'],r['lon']] for r in records[g['idx_after']:g['idx_after']+100] if r.get('lat') is not None]
             gap_list.append({
                 'idx_before': g['idx_before'],
                 'idx_after': g['idx_after'],
                 'time_gap_s': g['time_gap_s'],
                 'gps_gap_m': round(g['gps_gap_m'], 1),
-                'crow_flies_m': crow_flies_m,
                 'dist_before_km': round(g['dist_before_m'] / 1000, 2),
                 'is_rest_stop': g['is_rest_stop'],
+                'lat_before': r0b.get('lat'), 'lon_before': r0b.get('lon'),
+                'lat_after':  r1b.get('lat'), 'lon_after':  r1b.get('lon'),
+                'track_before': track_before,
+                'track_after':  track_after,
                 'avg_speed_kmh': analysis['avg_speed_kmh'],
                 'avg_speed_ms': analysis['avg_speed_ms'],
                 'heart_rate': analysis['heart_rate'],
@@ -349,8 +376,9 @@ def run_repair(job_id, data, filename, params):
             avg_speed_ms = analysis['avg_speed_ms']
             pre_avgs = {k: analysis[k] for k in ('heart_rate','power','cadence','altitude','temperature')}
 
+            route_coords = params[gi].get('route_coords')
             synth, added_m = build_synthetic_records(
-                merged, gap, stop_s, road_distance_m, avg_speed_ms, pre_avgs)
+                merged, gap, stop_s, road_distance_m, avg_speed_ms, pre_avgs, route_coords)
 
             for j in range(gap['idx_after'], len(merged)):
                 if merged[j].get('distance') is not None:

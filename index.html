@@ -4,187 +4,137 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>FIT Gap Repair</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap');
 
   :root {
-    --bg:         #f4f5f7;
-    --surface:    #ffffff;
-    --border:     #dde1e7;
-    --border-strong: #b0b8c4;
-    --accent:     #2563eb;
-    --accent-bg:  #eff6ff;
-    --warn:       #d97706;
-    --warn-bg:    #fffbeb;
-    --warn-border:#fcd34d;
-    --ok:         #16a34a;
-    --ok-bg:      #f0fdf4;
-    --ok-border:  #86efac;
-    --err:        #dc2626;
-    --err-bg:     #fef2f2;
-    --text:       #111827;
-    --text-2:     #374151;
-    --muted:      #6b7280;
-    --tag-rest:   #e5e7eb;
-    --tag-rest-t: #374151;
-    --tag-gap:    #dbeafe;
-    --tag-gap-t:  #1d4ed8;
-    --mono: 'JetBrains Mono', monospace;
-    --sans: 'Inter', system-ui, sans-serif;
-    --radius: 8px;
-    --shadow: 0 1px 3px rgba(0,0,0,.08), 0 1px 2px rgba(0,0,0,.06);
+    --bg:#f4f5f7; --surface:#fff; --border:#dde1e7; --border-strong:#b0b8c4;
+    --accent:#2563eb; --accent-bg:#eff6ff; --accent-border:#bfdbfe;
+    --warn:#d97706; --warn-bg:#fffbeb; --warn-border:#fcd34d;
+    --ok:#16a34a; --ok-bg:#f0fdf4; --ok-border:#86efac;
+    --err:#dc2626; --err-bg:#fef2f2;
+    --text:#111827; --text-2:#374151; --muted:#6b7280;
+    --tag-rest-bg:#e5e7eb; --tag-rest-t:#374151;
+    --tag-gap-bg:#dbeafe; --tag-gap-t:#1d4ed8;
+    --mono:'JetBrains Mono',monospace;
+    --sans:'Inter',system-ui,sans-serif;
+    --r:8px; --shadow:0 1px 3px rgba(0,0,0,.08),0 1px 2px rgba(0,0,0,.06);
   }
+  *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+  body{background:var(--bg);color:var(--text);font-family:var(--sans);font-size:14px;line-height:1.6;min-height:100vh}
 
-  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-  body { background: var(--bg); color: var(--text); font-family: var(--sans); font-size: 14px; line-height: 1.6; min-height: 100vh; }
+  header{background:var(--surface);border-bottom:1px solid var(--border);padding:14px 28px;display:flex;align-items:center;gap:12px}
+  .logo{width:30px;height:30px;background:var(--accent);border-radius:6px;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+  .logo svg{width:16px;height:16px}
+  header h1{font-size:15px;font-weight:600}
+  header span{font-size:12px;color:var(--muted);margin-left:4px}
 
-  /* ── Header ── */
-  header { background: var(--surface); border-bottom: 1px solid var(--border); padding: 14px 28px; display: flex; align-items: center; gap: 12px; }
-  .logo { width: 30px; height: 30px; background: var(--accent); border-radius: 6px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
-  .logo svg { width: 16px; height: 16px; }
-  header h1 { font-size: 15px; font-weight: 600; color: var(--text); }
-  header span { font-size: 12px; color: var(--muted); margin-left: 4px; }
+  main{max-width:960px;margin:0 auto;padding:32px 20px 80px}
 
-  /* ── Layout ── */
-  main { max-width: 760px; margin: 0 auto; padding: 32px 20px 80px; }
+  #drop-zone{background:var(--surface);border:2px dashed var(--border-strong);border-radius:var(--r);padding:48px 24px;text-align:center;cursor:pointer;transition:border-color .15s,background .15s;position:relative}
+  #drop-zone:hover,#drop-zone.drag-over{border-color:var(--accent);background:var(--accent-bg)}
+  #drop-zone input[type="file"]{position:absolute;inset:0;opacity:0;cursor:pointer}
+  #drop-zone .icon{font-size:32px;display:block;margin-bottom:10px}
+  #drop-zone .title{font-weight:600;font-size:15px}
+  #drop-zone p{color:var(--muted);font-size:13px;margin-top:4px}
 
-  /* ── Drop zone ── */
-  #drop-zone {
-    background: var(--surface); border: 2px dashed var(--border-strong);
-    border-radius: var(--radius); padding: 48px 24px; text-align: center;
-    cursor: pointer; transition: border-color .15s, background .15s; position: relative;
-  }
-  #drop-zone:hover, #drop-zone.drag-over { border-color: var(--accent); background: var(--accent-bg); }
-  #drop-zone input[type="file"] { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
-  #drop-zone .icon { font-size: 32px; display: block; margin-bottom: 10px; }
-  #drop-zone .title { font-weight: 600; font-size: 15px; }
-  #drop-zone p { color: var(--muted); font-size: 13px; margin-top: 4px; }
+  #status{display:none;padding:10px 14px;border-radius:var(--r);margin-top:14px;font-size:13px}
+  #status.loading{background:var(--accent-bg);border:1px solid var(--accent-border);color:var(--accent)}
+  #status.error{background:var(--err-bg);border:1px solid #fca5a5;color:var(--err)}
+  #status.ok{background:var(--ok-bg);border:1px solid var(--ok-border);color:var(--ok)}
 
-  /* ── Status ── */
-  #status { display: none; padding: 10px 14px; border-radius: var(--radius); margin-top: 14px; font-size: 13px; }
-  #status.loading { background: var(--accent-bg); border: 1px solid #bfdbfe; color: var(--accent); }
-  #status.error   { background: var(--err-bg); border: 1px solid #fca5a5; color: var(--err); }
-  #status.ok      { background: var(--ok-bg); border: 1px solid var(--ok-border); color: var(--ok); }
+  #summary{display:none;margin-top:20px;background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:16px 20px;box-shadow:var(--shadow)}
+  .summary-row{display:flex;gap:28px;flex-wrap:wrap}
+  .stat-val{font-family:var(--mono);font-size:20px;font-weight:500}
+  .stat-label{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-top:2px}
 
-  /* ── Summary bar ── */
-  #summary { display: none; margin-top: 20px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px 20px; box-shadow: var(--shadow); }
-  .summary-row { display: flex; gap: 28px; flex-wrap: wrap; }
-  .stat-val { font-family: var(--mono); font-size: 20px; font-weight: 500; color: var(--text); }
-  .stat-label { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: .06em; margin-top: 2px; }
-
-  /* ── Section heading ── */
-  .section-heading { font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); margin: 28px 0 12px; }
+  .section-heading{font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin:28px 0 12px}
 
   /* ── Gap card ── */
-  .gap-card {
-    background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
-    margin-bottom: 12px; box-shadow: var(--shadow); overflow: hidden;
-    transition: border-color .15s;
-  }
-  .gap-card.included { border-color: var(--accent); }
-  .gap-card.excluded { opacity: .6; }
+  .gap-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);margin-bottom:16px;box-shadow:var(--shadow);overflow:hidden;transition:border-color .15s}
+  .gap-card.included{border-color:var(--accent)}
+  .gap-card.excluded{opacity:.6}
 
-  .gap-card-header {
-    display: flex; align-items: center; gap: 10px; padding: 12px 16px;
-    border-bottom: 1px solid var(--border); background: #fafbfc; cursor: pointer;
-    user-select: none;
-  }
-  .gap-card.included .gap-card-header { background: var(--accent-bg); }
+  .gap-card-header{display:flex;align-items:center;gap:10px;padding:12px 16px;border-bottom:1px solid var(--border);background:#fafbfc;cursor:pointer;user-select:none}
+  .gap-card.included .gap-card-header{background:var(--accent-bg)}
+  .gap-checkbox{width:17px;height:17px;accent-color:var(--accent);cursor:pointer;flex-shrink:0}
+  .gap-title{font-weight:600;font-size:14px;flex:1}
+  .gap-tag{font-size:11px;font-weight:500;padding:2px 8px;border-radius:99px}
+  .tag-rest{background:var(--tag-rest-bg);color:var(--tag-rest-t)}
+  .tag-gap{background:var(--tag-gap-bg);color:var(--tag-gap-t)}
 
-  .gap-checkbox { width: 17px; height: 17px; accent-color: var(--accent); cursor: pointer; flex-shrink: 0; }
-  .gap-title { font-weight: 600; font-size: 14px; flex: 1; }
-  .gap-tag {
-    font-size: 11px; font-weight: 500; padding: 2px 8px; border-radius: 99px;
-  }
-  .tag-rest { background: var(--tag-rest); color: var(--tag-rest-t); }
-  .tag-gap  { background: var(--tag-gap);  color: var(--tag-gap-t); }
-
-  .gap-card-body { padding: 16px; display: none; }
+  .gap-card-body{display:none;padding:16px}
   .gap-card.included .gap-card-body,
-  .gap-card.excluded .gap-card-body { display: block; }
+  .gap-card.excluded .gap-card-body{display:block}
 
-  /* ── Stats row ── */
-  .stats-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 16px; }
-  .stat-box { background: var(--bg); border-radius: 6px; padding: 10px 12px; }
-  .stat-box .val { font-family: var(--mono); font-size: 17px; font-weight: 500; }
-  .stat-box .lbl { font-size: 11px; color: var(--muted); margin-top: 1px; }
+  /* ── Two-column layout inside card ── */
+  .gap-card-inner{display:grid;grid-template-columns:1fr 340px;gap:16px;align-items:start}
+  @media(max-width:700px){.gap-card-inner{grid-template-columns:1fr}}
 
-  /* ── Input grid ── */
-  .input-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 14px; }
-  .field-label { font-size: 12px; font-weight: 500; color: var(--text-2); margin-bottom: 4px; display: block; }
-  .field-hint  { font-size: 11px; color: var(--muted); margin-bottom: 5px; display: block; }
+  /* ── Stats ── */
+  .stats-row{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:14px}
+  .stat-box{background:var(--bg);border-radius:6px;padding:9px 11px}
+  .stat-box .val{font-family:var(--mono);font-size:16px;font-weight:500}
+  .stat-box .lbl{font-size:11px;color:var(--muted);margin-top:1px}
 
-  input[type="number"] {
-    width: 100%; padding: 8px 10px; border: 1px solid var(--border); border-radius: 6px;
-    font-family: var(--mono); font-size: 14px; color: var(--text); background: var(--surface);
-    outline: none; transition: border-color .15s; -moz-appearance: textfield;
-  }
-  input[type="number"]:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(37,99,235,.1); }
+  /* ── Inputs ── */
+  .input-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px}
+  .field-label{font-size:12px;font-weight:500;color:var(--text-2);margin-bottom:3px;display:block}
+  .field-hint{font-size:11px;color:var(--muted);margin-bottom:4px;display:block}
+  input[type="number"]{width:100%;padding:7px 9px;border:1px solid var(--border);border-radius:6px;font-family:var(--mono);font-size:14px;color:var(--text);background:var(--surface);outline:none;transition:border-color .15s;-moz-appearance:textfield}
+  input[type="number"]:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(37,99,235,.1)}
   input[type="number"]::-webkit-outer-spin-button,
-  input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; }
+  input[type="number"]::-webkit-inner-spin-button{-webkit-appearance:none}
 
   /* ── Live preview ── */
-  .live-preview {
-    background: var(--accent-bg); border: 1px solid #bfdbfe; border-radius: 6px;
-    padding: 12px 14px; margin-bottom: 14px; font-size: 13px;
-  }
-  .live-preview .preview-title { font-weight: 600; font-size: 12px; color: var(--accent); text-transform: uppercase; letter-spacing: .06em; margin-bottom: 8px; }
-  .preview-row { display: flex; justify-content: space-between; padding: 3px 0; border-bottom: 1px solid #dbeafe; }
-  .preview-row:last-child { border-bottom: none; }
-  .preview-key { color: var(--muted); }
-  .preview-val { font-family: var(--mono); font-weight: 500; color: var(--text); }
+  .live-preview{background:var(--accent-bg);border:1px solid var(--accent-border);border-radius:6px;padding:10px 12px;margin-bottom:12px;font-size:13px}
+  .preview-title{font-weight:600;font-size:11px;color:var(--accent);text-transform:uppercase;letter-spacing:.06em;margin-bottom:7px}
+  .preview-row{display:flex;justify-content:space-between;padding:3px 0;border-bottom:1px solid #dbeafe}
+  .preview-row:last-child{border-bottom:none}
+  .preview-key{color:var(--muted)}
+  .preview-val{font-family:var(--mono);font-weight:500;color:var(--text)}
+  .preview-ref{color:var(--muted);font-weight:400;font-size:11px}
 
-  /* ── Written values (read-only reference) ── */
-  .written-vals {
-    background: #f9fafb; border: 1px solid var(--border); border-radius: 6px;
-    padding: 10px 14px;
-  }
-  .written-vals .wv-title { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); margin-bottom: 8px; }
-  .wv-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; }
-  .wv-item { text-align: center; }
-  .wv-val { font-family: var(--mono); font-size: 13px; font-weight: 500; }
-  .wv-key { font-size: 10px; color: var(--muted); margin-top: 1px; }
+  /* ── Written values ── */
+  .written-vals{background:#f9fafb;border:1px solid var(--border);border-radius:6px;padding:10px 12px}
+  .written-vals .wv-title{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin-bottom:7px}
+  .wv-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:6px}
+  .wv-item{text-align:center}
+  .wv-val{font-family:var(--mono);font-size:12px;font-weight:500}
+  .wv-key{font-size:10px;color:var(--muted);margin-top:1px}
+
+  /* ── Map panel ── */
+  .map-panel{border-radius:var(--r);overflow:hidden;border:1px solid var(--border);background:#e8edf2}
+  .map-panel .map-title{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);padding:8px 10px;background:var(--surface);border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center}
+  .map-container{height:280px;width:100%}
+  .map-instructions{font-size:11px;color:var(--muted);padding:6px 10px;background:var(--surface);border-top:1px solid var(--border)}
+  .map-instructions b{color:var(--text-2)}
+  .map-snap-btn{font-size:11px;padding:3px 8px;border-radius:4px;border:1px solid var(--accent-border);background:var(--accent-bg);color:var(--accent);cursor:pointer;font-weight:500;transition:background .1s}
+  .map-snap-btn:hover{background:#dbeafe}
+  .map-snap-btn:disabled{opacity:.5;cursor:not-allowed}
+  .map-clear-btn{font-size:11px;padding:3px 8px;border-radius:4px;border:1px solid var(--border);background:var(--surface);color:var(--muted);cursor:pointer;margin-left:4px}
+  .map-clear-btn:hover{background:var(--bg)}
+  .map-status{font-size:11px;color:var(--accent);padding:4px 10px;background:var(--accent-bg);display:none;border-top:1px solid var(--accent-border)}
 
   /* ── Repair button ── */
-  #repair-section { display: none; margin-top: 24px; }
-  #btn-repair {
-    width: 100%; padding: 13px; background: var(--accent); color: #fff;
-    font-family: var(--sans); font-size: 14px; font-weight: 600; border: none;
-    border-radius: var(--radius); cursor: pointer; letter-spacing: .01em;
-    transition: background .15s, transform .1s; box-shadow: var(--shadow);
-  }
-  #btn-repair:hover { background: #1d4ed8; }
-  #btn-repair:active { transform: scale(.99); }
-  #btn-repair:disabled { background: #93c5fd; cursor: not-allowed; }
+  #repair-section{display:none;margin-top:24px}
+  #btn-repair{width:100%;padding:13px;background:var(--accent);color:#fff;font-family:var(--sans);font-size:14px;font-weight:600;border:none;border-radius:var(--r);cursor:pointer;transition:background .15s,transform .1s;box-shadow:var(--shadow)}
+  #btn-repair:hover{background:#1d4ed8}
+  #btn-repair:active{transform:scale(.99)}
+  #btn-repair:disabled{background:#93c5fd;cursor:not-allowed}
 
   /* ── Result ── */
-  #result-section { display: none; margin-top: 20px; }
-  .result-box { background: var(--ok-bg); border: 1px solid var(--ok-border); border-radius: var(--radius); padding: 20px; }
-  .result-box h3 { font-size: 13px; font-weight: 600; color: var(--ok); text-transform: uppercase; letter-spacing: .06em; margin-bottom: 16px; }
-  .result-stats { display: grid; grid-template-columns: repeat(3,1fr); gap: 12px; margin-bottom: 18px; }
+  #result-section{display:none;margin-top:20px}
+  .result-box{background:var(--ok-bg);border:1px solid var(--ok-border);border-radius:var(--r);padding:20px}
+  .result-box h3{font-size:13px;font-weight:600;color:var(--ok);text-transform:uppercase;letter-spacing:.06em;margin-bottom:16px}
+  .result-stats{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:18px}
+  #btn-download{display:block;width:100%;padding:12px;background:var(--ok);color:#fff;font-size:14px;font-weight:600;border:none;border-radius:var(--r);cursor:pointer;text-align:center;text-decoration:none;transition:background .15s;box-shadow:var(--shadow)}
+  #btn-download:hover{background:#15803d}
 
-  #btn-download {
-    display: block; width: 100%; padding: 12px; background: var(--ok); color: #fff;
-    font-size: 14px; font-weight: 600; border: none; border-radius: var(--radius);
-    cursor: pointer; text-align: center; text-decoration: none;
-    transition: background .15s; box-shadow: var(--shadow);
-  }
-  #btn-download:hover { background: #15803d; }
-
-  .spinner {
-    display: inline-block; width: 12px; height: 12px;
-    border: 2px solid currentColor; border-top-color: transparent;
-    border-radius: 50%; animation: spin .7s linear infinite;
-    margin-right: 6px; vertical-align: middle;
-  }
-  @keyframes spin { to { transform: rotate(360deg); } }
-
-  @media (max-width: 520px) {
-    .stats-row { grid-template-columns: 1fr 1fr; }
-    .input-grid { grid-template-columns: 1fr; }
-    .wv-grid { grid-template-columns: repeat(3,1fr); }
-    .result-stats { grid-template-columns: 1fr 1fr; }
-  }
+  .spinner{display:inline-block;width:12px;height:12px;border:2px solid currentColor;border-top-color:transparent;border-radius:50%;animation:spin .7s linear infinite;margin-right:6px;vertical-align:middle}
+  @keyframes spin{to{transform:rotate(360deg)}}
 </style>
 </head>
 <body>
@@ -240,265 +190,455 @@
 </main>
 
 <script>
-  const API = 'https://legendary-strava-repair.onrender.com';
-  const POLL_MS = 2000;
-  let currentFile = null;
-  let analysisData = null;
+const API     = 'https://legendary-strava-repair.onrender.com';
+const ORS_KEY = 'eyJvcmciOiI1YjNjZTM1OTc4NTExMTAwMDFjZjYyNDgiLCJpZCI6IjBjMWIwN2VjMzg5MjRiM2U4ZGJjNjc0ODUxZGM5YTRlIiwiaCI6Im11cm11cjY0In0=';
+const POLL_MS = 2000;
 
-  // ── DOM refs ──────────────────────────────────────────────────────────────
-  const dropZone   = document.getElementById('drop-zone');
-  const fileInput  = document.getElementById('file-input');
-  const statusEl   = document.getElementById('status');
-  const summaryEl  = document.getElementById('summary');
-  const gapsSect   = document.getElementById('gaps-section');
-  const gapsCont   = document.getElementById('gaps-container');
-  const repairSect = document.getElementById('repair-section');
-  const btnRepair  = document.getElementById('btn-repair');
-  const resultSect = document.getElementById('result-section');
-  const btnDl      = document.getElementById('btn-download');
+let currentFile  = null;
+let analysisData = null;
+// Per-gap state: { map, waypoints, routeCoords, routeLayer, waypointLayer }
+const gapMaps = {};
 
-  // ── Drag & drop ───────────────────────────────────────────────────────────
-  dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('drag-over'); });
-  dropZone.addEventListener('dragleave', () => dropZone.classList.remove('drag-over'));
-  dropZone.addEventListener('drop', e => { e.preventDefault(); dropZone.classList.remove('drag-over'); if (e.dataTransfer.files[0]) handleFile(e.dataTransfer.files[0]); });
-  fileInput.addEventListener('change', () => { if (fileInput.files[0]) handleFile(fileInput.files[0]); });
+const dropZone   = document.getElementById('drop-zone');
+const fileInput  = document.getElementById('file-input');
+const statusEl   = document.getElementById('status');
+const summaryEl  = document.getElementById('summary');
+const gapsSect   = document.getElementById('gaps-section');
+const gapsCont   = document.getElementById('gaps-container');
+const repairSect = document.getElementById('repair-section');
+const btnRepair  = document.getElementById('btn-repair');
+const resultSect = document.getElementById('result-section');
+const btnDl      = document.getElementById('btn-download');
 
-  // ── Status helpers ────────────────────────────────────────────────────────
-  function setStatus(msg, type='loading') {
-    statusEl.style.display = 'block';
-    statusEl.className = type;
-    statusEl.innerHTML = type === 'loading' ? `<span class="spinner"></span>${msg}` : msg;
-  }
-  function clearStatus() { statusEl.style.display = 'none'; }
+// ── Drag & drop ──────────────────────────────────────────────────────────────
+dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('drag-over'); });
+dropZone.addEventListener('dragleave', () => dropZone.classList.remove('drag-over'));
+dropZone.addEventListener('drop', e => { e.preventDefault(); dropZone.classList.remove('drag-over'); if (e.dataTransfer.files[0]) handleFile(e.dataTransfer.files[0]); });
+fileInput.addEventListener('change', () => { if (fileInput.files[0]) handleFile(fileInput.files[0]); });
 
-  function resetUI() {
-    summaryEl.style.display = 'none';
-    gapsSect.style.display = 'none';
-    repairSect.style.display = 'none';
-    resultSect.style.display = 'none';
-    gapsCont.innerHTML = '';
-    analysisData = null;
-  }
+// ── Status ───────────────────────────────────────────────────────────────────
+function setStatus(msg, type='loading') {
+  statusEl.style.display = 'block'; statusEl.className = type;
+  statusEl.innerHTML = type === 'loading' ? `<span class="spinner"></span>${msg}` : msg;
+}
+function clearStatus() { statusEl.style.display = 'none'; }
 
-  // ── Poll ──────────────────────────────────────────────────────────────────
-  function pollJob(jobId, onDone, onError) {
-    const iv = setInterval(async () => {
-      try {
-        const res = await fetch(`${API}/status/${jobId}`);
-        const d = await res.json();
-        if (d.status === 'running') return;
-        clearInterval(iv);
-        d.status === 'error' ? onError(d.error || 'Server error') : onDone(d);
-      } catch(err) { clearInterval(iv); onError(err.message); }
-    }, POLL_MS);
-  }
+function resetUI() {
+  summaryEl.style.display = 'none';
+  gapsSect.style.display  = 'none';
+  repairSect.style.display = 'none';
+  resultSect.style.display = 'none';
+  gapsCont.innerHTML = '';
+  Object.keys(gapMaps).forEach(k => delete gapMaps[k]);
+  analysisData = null;
+}
 
-  // ── Handle file ───────────────────────────────────────────────────────────
-  async function handleFile(file) {
-    if (!file.name.toLowerCase().endsWith('.fit')) { setStatus('Only .fit files are supported.', 'error'); return; }
-    currentFile = file;
-    resetUI();
-    setStatus(`Uploading ${file.name}…`);
-
-    const fd = new FormData(); fd.append('file', file);
-    let jobId;
+// ── Poll ─────────────────────────────────────────────────────────────────────
+function pollJob(jobId, onDone, onError) {
+  const iv = setInterval(async () => {
     try {
-      const res = await fetch(`${API}/analyze`, { method:'POST', body:fd });
+      const res = await fetch(`${API}/status/${jobId}`);
       const d = await res.json();
-      if (!res.ok) throw new Error(d.error || `HTTP ${res.status}`);
-      jobId = d.job_id;
-    } catch(err) { setStatus(`Upload failed: ${err.message}`, 'error'); return; }
+      if (d.status === 'running') return;
+      clearInterval(iv);
+      d.status === 'error' ? onError(d.error || 'Server error') : onDone(d);
+    } catch(err) { clearInterval(iv); onError(err.message); }
+  }, POLL_MS);
+}
 
-    setStatus('Analysing… may take 20–40 s on first upload');
+// ── Handle file ──────────────────────────────────────────────────────────────
+async function handleFile(file) {
+  if (!file.name.toLowerCase().endsWith('.fit')) { setStatus('Only .fit files are supported.', 'error'); return; }
+  currentFile = file; resetUI();
+  setStatus(`Uploading ${file.name}…`);
+  const fd = new FormData(); fd.append('file', file);
+  let jobId;
+  try {
+    const res = await fetch(`${API}/analyze`, { method:'POST', body:fd });
+    const d = await res.json();
+    if (!res.ok) throw new Error(d.error || `HTTP ${res.status}`);
+    jobId = d.job_id;
+  } catch(err) { setStatus(`Upload failed: ${err.message}`, 'error'); return; }
+  setStatus('Analysing… may take 20–40 s on first run');
+  pollJob(jobId, data => {
+    analysisData = data;
+    document.getElementById('s-records').textContent = data.num_records.toLocaleString();
+    document.getElementById('s-laps').textContent    = data.num_laps;
+    document.getElementById('s-dist').textContent    = data.original_dist_km.toFixed(2);
+    document.getElementById('s-gaps').textContent    = data.gaps.length;
+    summaryEl.style.display = 'block';
+    if (!data.gaps.length) { setStatus('No gaps detected.', 'ok'); return; }
+    clearStatus(); renderGaps(data.gaps);
+  }, err => setStatus(`Analysis failed: ${err}`, 'error'));
+}
 
-    pollJob(jobId,
-      data => {
-        analysisData = data;
-        document.getElementById('s-records').textContent = data.num_records.toLocaleString();
-        document.getElementById('s-laps').textContent    = data.num_laps;
-        document.getElementById('s-dist').textContent    = data.original_dist_km.toFixed(2);
-        document.getElementById('s-gaps').textContent    = data.gaps.length;
-        summaryEl.style.display = 'block';
+// ── Render gaps ──────────────────────────────────────────────────────────────
+function renderGaps(gaps) {
+  const recordingGaps = gaps.filter(g => !g.is_rest_stop).length;
+  document.getElementById('gaps-heading').textContent =
+    `${gaps.length} event${gaps.length!==1?'s':''} — ${recordingGaps} recording gap${recordingGaps!==1?'s':''}, ${gaps.length-recordingGaps} rest stop${gaps.length-recordingGaps!==1?'s':''}`;
 
-        if (!data.gaps.length) { setStatus('No gaps detected.', 'ok'); return; }
-        clearStatus();
-        renderGaps(data.gaps);
-      },
-      err => setStatus(`Analysis failed: ${err}`, 'error')
-    );
-  }
+  gaps.forEach((g, i) => {
+    const isRecGap = !g.is_rest_stop;
+    const card = document.createElement('div');
+    card.className = `gap-card ${isRecGap?'included':'excluded'}`;
+    card.dataset.idx = i;
 
-  // ── Render gaps ───────────────────────────────────────────────────────────
-  function renderGaps(gaps) {
-    const recordingGaps = gaps.filter(g => !g.is_rest_stop).length;
-    document.getElementById('gaps-heading').textContent =
-      `${gaps.length} event${gaps.length!==1?'s':''} detected — ${recordingGaps} recording gap${recordingGaps!==1?'s':''}, ${gaps.length-recordingGaps} rest stop${gaps.length-recordingGaps!==1?'s':''}`;
+    const wvCells = [
+      {k:'HR',   v: g.heart_rate   ? Math.round(g.heart_rate)+' bpm' : '—'},
+      {k:'Power', v: g.power       ? Math.round(g.power)+' W'        : '—'},
+      {k:'Cadence',v: g.cadence    ? Math.round(g.cadence)+' rpm'    : '—'},
+      {k:'Alt',  v: g.altitude!=null? g.altitude.toFixed(0)+' m'     : '—'},
+      {k:'Temp', v: g.temperature!=null? g.temperature.toFixed(0)+'°C':'—'},
+    ].map(c=>`<div class="wv-item"><div class="wv-val">${c.v}</div><div class="wv-key">${c.k}</div></div>`).join('');
 
-    gaps.forEach((g, i) => {
-      const isRecordingGap = !g.is_rest_stop;
-      const card = document.createElement('div');
-      card.className = `gap-card ${isRecordingGap ? 'included' : 'excluded'}`;
-      card.dataset.idx = i;
-
-      const tagClass = isRecordingGap ? 'tag-gap' : 'tag-rest';
-      const tagText  = isRecordingGap ? 'Recording Gap' : 'Rest Stop';
-      const timeMins = (g.time_gap_s / 60).toFixed(1);
-      const gpsM     = Math.round(g.gps_gap_m);
-      const distKm   = g.dist_before_km.toFixed(2);
-
-      // Written values cells
-      const wvCells = [
-        { key:'HR', val: g.heart_rate ? Math.round(g.heart_rate)+' bpm' : '—' },
-        { key:'Power', val: g.power ? Math.round(g.power)+' W' : '—' },
-        { key:'Cadence', val: g.cadence ? Math.round(g.cadence)+' rpm' : '—' },
-        { key:'Altitude', val: g.altitude != null ? g.altitude.toFixed(0)+' m' : '—' },
-        { key:'Temp', val: g.temperature != null ? g.temperature.toFixed(0)+'°C' : '—' },
-      ].map(c => `<div class="wv-item"><div class="wv-val">${c.val}</div><div class="wv-key">${c.key}</div></div>`).join('');
-
-      card.innerHTML = `
-        <div class="gap-card-header">
-          <input type="checkbox" class="gap-checkbox" data-idx="${i}" ${isRecordingGap ? 'checked' : ''}>
-          <div class="gap-title">Gap ${i+1} — at ${distKm} km</div>
-          <span class="gap-tag ${tagClass}">${tagText}</span>
-        </div>
-        <div class="gap-card-body">
-          <div class="stats-row">
-            <div class="stat-box"><div class="val">${timeMins} min</div><div class="lbl">Time jump</div></div>
-            <div class="stat-box"><div class="val">${gpsM} m</div><div class="lbl">GPS jump (straight line)</div></div>
-            <div class="stat-box"><div class="val">${distKm} km</div><div class="lbl">Position in ride</div></div>
-          </div>
-
-          <div class="input-grid">
-            <div>
-              <label class="field-label" for="stop-${i}">Stopped time (minutes)</label>
-              <input type="number" id="stop-${i}" class="inp-stop" data-idx="${i}"
-                min="0" max="${(g.time_gap_s/60).toFixed(1)}" step="0.5" value="0">
+    card.innerHTML = `
+      <div class="gap-card-header">
+        <input type="checkbox" class="gap-checkbox" data-idx="${i}" ${isRecGap?'checked':''}>
+        <div class="gap-title">Gap ${i+1} — at ${g.dist_before_km.toFixed(2)} km</div>
+        <span class="gap-tag ${isRecGap?'tag-gap':'tag-rest'}">${isRecGap?'Recording Gap':'Rest Stop'}</span>
+      </div>
+      <div class="gap-card-body">
+        <div class="gap-card-inner">
+          <div class="gap-left">
+            <div class="stats-row">
+              <div class="stat-box"><div class="val">${(g.time_gap_s/60).toFixed(1)} min</div><div class="lbl">Time jump</div></div>
+              <div class="stat-box"><div class="val">${Math.round(g.gps_gap_m)} m</div><div class="lbl">GPS straight-line</div></div>
+              <div class="stat-box"><div class="val">${g.dist_before_km.toFixed(2)} km</div><div class="lbl">Position in ride</div></div>
             </div>
-            <div>
-              <label class="field-label" for="dist-${i}">Road distance (metres)</label>
-              <span class="field-hint">Crow-flies: ${gpsM} m — adjust for actual road</span>
-              <input type="number" id="dist-${i}" class="inp-dist" data-idx="${i}"
-                min="0" step="10" value="${gpsM}">
+            <div class="input-grid">
+              <div>
+                <label class="field-label">Stopped time (min)</label>
+                <input type="number" id="stop-${i}" class="inp-stop" data-idx="${i}"
+                  min="0" max="${(g.time_gap_s/60).toFixed(1)}" step="0.5" value="0">
+              </div>
+              <div>
+                <label class="field-label">Road distance (m)</label>
+                <span class="field-hint">Straight-line: ${Math.round(g.gps_gap_m)} m</span>
+                <input type="number" id="dist-${i}" class="inp-dist" data-idx="${i}"
+                  min="0" step="10" value="${Math.round(g.gps_gap_m)}">
+              </div>
+            </div>
+            <div class="live-preview" id="preview-${i}"></div>
+            <div class="written-vals">
+              <div class="wv-title">Synthetic record values (50 records before gap)</div>
+              <div class="wv-grid">${wvCells}</div>
             </div>
           </div>
-
-          <div class="live-preview" id="preview-${i}"></div>
-
-          <div class="written-vals">
-            <div class="wv-title">Values written to synthetic records (from 50 records before gap)</div>
-            <div class="wv-grid">${wvCells}</div>
+          <div class="gap-right">
+            <div class="map-panel" id="map-panel-${i}">
+              <div class="map-title">
+                <span>Route through gap</span>
+                <span>
+                  <button class="map-snap-btn" id="snap-btn-${i}">Snap to road</button>
+                  <button class="map-clear-btn" id="clear-btn-${i}">Clear</button>
+                </span>
+              </div>
+              <div class="map-container" id="map-${i}"></div>
+              <div class="map-instructions"><b>Click</b> on the map to add waypoints for the missing route</div>
+              <div class="map-status" id="map-status-${i}"></div>
+            </div>
           </div>
         </div>
-      `;
-
-      gapsCont.appendChild(card);
-
-      // Checkbox toggles included/excluded
-      const cb = card.querySelector('.gap-checkbox');
-      cb.addEventListener('change', () => {
-        card.className = `gap-card ${cb.checked ? 'included' : 'excluded'}`;
-        updateRepairButton();
-      });
-      // Header click toggles checkbox
-      card.querySelector('.gap-card-header').addEventListener('click', e => {
-        if (e.target === cb) return;
-        cb.checked = !cb.checked; cb.dispatchEvent(new Event('change'));
-      });
-
-      // Live update
-      const stopInp = card.querySelector('.inp-stop');
-      const distInp = card.querySelector('.inp-dist');
-      const update  = () => updatePreview(i, g);
-      stopInp.addEventListener('input', update);
-      distInp.addEventListener('input', update);
-      update();
-    });
-
-    gapsSect.style.display = 'block';
-    updateRepairButton();
-  }
-
-  function updateRepairButton() {
-    const anyChecked = [...document.querySelectorAll('.gap-checkbox')].some(cb => cb.checked);
-    repairSect.style.display = anyChecked ? 'block' : 'none';
-  }
-
-  function updatePreview(i, g) {
-    const stopMin  = parseFloat(document.getElementById(`stop-${i}`).value || 0);
-    const roadM    = parseFloat(document.getElementById(`dist-${i}`).value || g.gps_gap_m);
-    const stopS    = stopMin * 60;
-    const rideS    = Math.max(0, g.time_gap_s - stopS);
-    const rideMin  = (rideS / 60).toFixed(1);
-    const speedKmh = rideS > 0 ? ((roadM / rideS) * 3.6).toFixed(1) : '0.0';
-    const distKm   = (roadM / 1000).toFixed(2);
-    const ref30    = g.avg_speed_kmh.toFixed(1);
-
-    document.getElementById(`preview-${i}`).innerHTML = `
-      <div class="preview-title">What will be written</div>
-      <div class="preview-row"><span class="preview-key">Stop time</span><span class="preview-val">${stopMin.toFixed(1)} min</span></div>
-      <div class="preview-row"><span class="preview-key">Riding time in gap</span><span class="preview-val">${rideMin} min</span></div>
-      <div class="preview-row"><span class="preview-key">Road distance</span><span class="preview-val">${distKm} km</span></div>
-      <div class="preview-row"><span class="preview-key">Implied speed</span><span class="preview-val">${speedKmh} km/h <span style="color:var(--muted);font-weight:400">(30-min avg before gap: ${ref30} km/h)</span></span></div>
+      </div>
     `;
-  }
 
-  // ── Repair ────────────────────────────────────────────────────────────────
-  btnRepair.addEventListener('click', async () => {
-    if (!currentFile || !analysisData) return;
+    gapsCont.appendChild(card);
 
-    const params = analysisData.gaps.map((g, i) => {
-      const cb = document.querySelector(`.gap-checkbox[data-idx="${i}"]`);
-      return {
-        include: cb ? cb.checked : false,
-        stop_s: parseFloat(document.getElementById(`stop-${i}`).value || 0) * 60,
-        road_distance_m: parseFloat(document.getElementById(`dist-${i}`).value || g.gps_gap_m),
-      };
+    // Checkbox / header toggle
+    const cb = card.querySelector('.gap-checkbox');
+    cb.addEventListener('change', () => {
+      card.className = `gap-card ${cb.checked?'included':'excluded'}`;
+      updateRepairButton();
+      if (cb.checked) setTimeout(() => initMap(i, g), 50);
+    });
+    card.querySelector('.gap-card-header').addEventListener('click', e => {
+      if (e.target === cb) return;
+      cb.checked = !cb.checked; cb.dispatchEvent(new Event('change'));
     });
 
-    btnRepair.disabled = true;
-    btnRepair.innerHTML = '<span class="spinner"></span>Uploading for repair…';
-    resultSect.style.display = 'none';
-    clearStatus();
+    // Inputs
+    const stopInp = card.querySelector('.inp-stop');
+    const distInp = card.querySelector('.inp-dist');
+    stopInp.addEventListener('input', () => updatePreview(i, g));
+    distInp.addEventListener('input', () => updatePreview(i, g));
+    updatePreview(i, g);
 
-    const fd = new FormData();
-    fd.append('file', currentFile);
-    fd.append('params', JSON.stringify(params));
+    // Snap & clear buttons
+    document.getElementById(`snap-btn-${i}`).addEventListener('click', () => snapToRoad(i, g));
+    document.getElementById(`clear-btn-${i}`).addEventListener('click', () => clearWaypoints(i, g));
 
-    let jobId;
-    try {
-      const res = await fetch(`${API}/repair`, { method:'POST', body:fd });
-      const d = await res.json();
-      if (!res.ok) throw new Error(d.error || `HTTP ${res.status}`);
-      jobId = d.job_id;
-    } catch(err) {
-      setStatus(`Repair failed: ${err.message}`, 'error');
-      btnRepair.disabled = false;
-      btnRepair.textContent = 'Repair FIT file';
-      return;
-    }
-
-    btnRepair.innerHTML = '<span class="spinner"></span>Repairing…';
-
-    pollJob(jobId,
-      data => {
-        btnRepair.disabled = false;
-        btnRepair.textContent = 'Repair FIT file';
-        document.getElementById('r-orig').textContent  = data.original_dist_km + ' km';
-        document.getElementById('r-added').textContent = '+' + data.added_dist_km + ' km';
-        document.getElementById('r-total').textContent = data.new_dist_km + ' km';
-        btnDl.href = `${API}/download/${jobId}`;
-        btnDl.download = data.out_name;
-        btnDl.textContent = `⬇ Download ${data.out_name}`;
-        resultSect.style.display = 'block';
-        resultSect.scrollIntoView({ behavior:'smooth', block:'nearest' });
-      },
-      err => {
-        btnRepair.disabled = false;
-        btnRepair.textContent = 'Repair FIT file';
-        setStatus(`Repair failed: ${err}`, 'error');
-      }
-    );
+    // Init map for recording gaps (already visible)
+    if (isRecGap) setTimeout(() => initMap(i, g), 100);
   });
+
+  gapsSect.style.display = 'block';
+  updateRepairButton();
+}
+
+// ── Map ───────────────────────────────────────────────────────────────────────
+
+function calcZoom(gpsGapM) {
+  // Ensure at least 500m visible, fit to gap with padding
+  const targetM = Math.max(500, gpsGapM * 2.5);
+  // Leaflet zoom: at zoom z, 1 tile = 256px covers 40075016*cos(lat)/2^z metres
+  // Approximate: map is ~340px wide, pick zoom where width covers targetM
+  // Simple lookup
+  if (targetM > 50000) return 11;
+  if (targetM > 20000) return 12;
+  if (targetM > 8000)  return 13;
+  if (targetM > 3000)  return 14;
+  if (targetM > 1200)  return 15;
+  if (targetM > 500)   return 16;
+  return 16;
+}
+
+function initMap(i, g) {
+  if (gapMaps[i]) return; // already initialised
+
+  const midLat = (g.lat_before + g.lat_after) / 2;
+  const midLon = (g.lon_before + g.lon_after) / 2;
+  const zoom   = calcZoom(g.gps_gap_m);
+
+  const map = L.map(`map-${i}`, { zoomControl: true }).setView([midLat, midLon], zoom);
+
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    attribution: '© OpenStreetMap contributors', maxZoom: 19
+  }).addTo(map);
+
+  // Draw existing route before/after gap (last 200 & first 200 records)
+  const before = (g.track_before || []).map(p => [p[0], p[1]]);
+  const after  = (g.track_after  || []).map(p => [p[0], p[1]]);
+  if (before.length) L.polyline(before, {color:'#2563eb', weight:3, opacity:.7}).addTo(map);
+  if (after.length)  L.polyline(after,  {color:'#2563eb', weight:3, opacity:.7}).addTo(map);
+
+  // Gap straight-line (dashed orange)
+  const gapLine = L.polyline(
+    [[g.lat_before, g.lon_before],[g.lat_after, g.lon_after]],
+    {color:'#f97316', weight:2, dashArray:'6 4', opacity:.8}
+  ).addTo(map);
+
+  // Start/end markers
+  const startIcon = L.divIcon({html:'<div style="width:10px;height:10px;background:#16a34a;border:2px solid #fff;border-radius:50%;box-shadow:0 1px 3px rgba(0,0,0,.4)"></div>', className:'', iconAnchor:[5,5]});
+  const endIcon   = L.divIcon({html:'<div style="width:10px;height:10px;background:#dc2626;border:2px solid #fff;border-radius:50%;box-shadow:0 1px 3px rgba(0,0,0,.4)"></div>', className:'', iconAnchor:[5,5]});
+  L.marker([g.lat_before, g.lon_before], {icon:startIcon}).addTo(map).bindTooltip('Gap start');
+  L.marker([g.lat_after,  g.lon_after],  {icon:endIcon  }).addTo(map).bindTooltip('Gap end');
+
+  const state = { map, waypoints:[], routeCoords:null, routeLayer:null, waypointMarkers:[] };
+  gapMaps[i] = state;
+
+  map.on('click', e => addWaypoint(i, g, e.latlng));
+}
+
+function waypointIcon(n) {
+  return L.divIcon({
+    html: `<div style="width:14px;height:14px;background:#7c3aed;border:2px solid #fff;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:8px;color:#fff;font-weight:600;box-shadow:0 1px 3px rgba(0,0,0,.4)">${n}</div>`,
+    className:'', iconAnchor:[7,7]
+  });
+}
+
+function addWaypoint(i, g, latlng) {
+  const state = gapMaps[i];
+  if (!state) return;
+  state.waypoints.push([latlng.lat, latlng.lng]);
+  const marker = L.marker(latlng, {icon: waypointIcon(state.waypoints.length), draggable:true}).addTo(state.map);
+  marker.on('dragend', () => {
+    const idx = state.waypointMarkers.indexOf(marker);
+    if (idx >= 0) { state.waypoints[idx] = [marker.getLatLng().lat, marker.getLatLng().lng]; redrawUserPath(i, g); }
+  });
+  state.waypointMarkers.push(marker);
+  redrawUserPath(i, g);
+  updateDistFromRoute(i, g);
+}
+
+function redrawUserPath(i, g) {
+  const state = gapMaps[i];
+  if (!state) return;
+  if (state.userPathLayer) { state.map.removeLayer(state.userPathLayer); state.userPathLayer = null; }
+  const pts = [[g.lat_before, g.lon_before], ...state.waypoints, [g.lat_after, g.lon_after]];
+  if (pts.length >= 2) {
+    state.userPathLayer = L.polyline(pts, {color:'#16a34a', weight:3, opacity:.9}).addTo(state.map);
+  }
+  updateDistFromRoute(i, g);
+}
+
+function updateDistFromRoute(i, g) {
+  const state = gapMaps[i];
+  if (!state) return;
+  // Use snapped route if available, else user waypoints
+  const coords = state.routeCoords
+    || [[g.lat_before, g.lon_before], ...state.waypoints, [g.lat_after, g.lon_after]];
+  if (coords.length < 2) return;
+  const dist = pathLengthM(coords);
+  const distInp = document.getElementById(`dist-${i}`);
+  if (distInp) { distInp.value = Math.round(dist); updatePreview(i, g); }
+}
+
+function pathLengthM(coords) {
+  let total = 0;
+  for (let j = 1; j < coords.length; j++) {
+    total += haversineM(coords[j-1][0], coords[j-1][1], coords[j][0], coords[j][1]);
+  }
+  return total;
+}
+
+function haversineM(lat1, lon1, lat2, lon2) {
+  const R = 6371000;
+  const p1 = lat1*Math.PI/180, p2 = lat2*Math.PI/180;
+  const dp = (lat2-lat1)*Math.PI/180, dl = (lon2-lon1)*Math.PI/180;
+  const a = Math.sin(dp/2)**2 + Math.cos(p1)*Math.cos(p2)*Math.sin(dl/2)**2;
+  return 2*R*Math.asin(Math.sqrt(a));
+}
+
+function clearWaypoints(i, g) {
+  const state = gapMaps[i];
+  if (!state) return;
+  state.waypointMarkers.forEach(m => state.map.removeLayer(m));
+  state.waypointMarkers = []; state.waypoints = [];
+  if (state.userPathLayer) { state.map.removeLayer(state.userPathLayer); state.userPathLayer = null; }
+  if (state.routeLayer)    { state.map.removeLayer(state.routeLayer);    state.routeLayer    = null; }
+  state.routeCoords = null;
+  // Reset distance to crow-flies
+  const distInp = document.getElementById(`dist-${i}`);
+  if (distInp) { distInp.value = Math.round(g.gps_gap_m); updatePreview(i, g); }
+  setMapStatus(i, '');
+}
+
+async function snapToRoad(i, g) {
+  const state = gapMaps[i];
+  if (!state) return;
+  const snapBtn = document.getElementById(`snap-btn-${i}`);
+  snapBtn.disabled = true; snapBtn.textContent = 'Snapping…';
+  setMapStatus(i, 'Routing via OpenRouteService…');
+
+  // Build waypoints: gap start + user points + gap end
+  const coords = [
+    [g.lon_before, g.lat_before],
+    ...state.waypoints.map(p => [p[1], p[0]]),
+    [g.lon_after, g.lat_after],
+  ];
+
+  try {
+    const res = await fetch('https://api.openrouteservice.org/v2/directions/cycling-road/geojson', {
+      method: 'POST',
+      headers: { 'Authorization': ORS_KEY, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ coordinates: coords })
+    });
+    if (!res.ok) throw new Error(`ORS HTTP ${res.status}`);
+    const data = await res.json();
+    const orsCoords = data.features[0].geometry.coordinates; // [lon,lat]
+    const latLons = orsCoords.map(c => [c[1], c[0]]);
+
+    // Remove old route/user path
+    if (state.routeLayer)    { state.map.removeLayer(state.routeLayer);    }
+    if (state.userPathLayer) { state.map.removeLayer(state.userPathLayer); state.userPathLayer = null; }
+
+    state.routeCoords = latLons;
+    state.routeLayer  = L.polyline(latLons, {color:'#16a34a', weight:4, opacity:.9}).addTo(state.map);
+    state.map.fitBounds(state.routeLayer.getBounds(), {padding:[20,20]});
+
+    const dist = pathLengthM(latLons);
+    const distInp = document.getElementById(`dist-${i}`);
+    if (distInp) { distInp.value = Math.round(dist); updatePreview(i, g); }
+
+    const distKm = (dist/1000).toFixed(2);
+    setMapStatus(i, `✓ Road route: ${distKm} km (${orsCoords.length} points)`);
+  } catch(err) {
+    setMapStatus(i, `Routing failed: ${err.message}`);
+  }
+  snapBtn.disabled = false; snapBtn.textContent = 'Snap to road';
+}
+
+function setMapStatus(i, msg) {
+  const el = document.getElementById(`map-status-${i}`);
+  if (!el) return;
+  el.style.display = msg ? 'block' : 'none';
+  el.textContent = msg;
+}
+
+// ── Preview ───────────────────────────────────────────────────────────────────
+function updatePreview(i, g) {
+  const stopMin  = parseFloat(document.getElementById(`stop-${i}`)?.value || 0);
+  const roadM    = parseFloat(document.getElementById(`dist-${i}`)?.value || g.gps_gap_m);
+  const stopS    = stopMin * 60;
+  const rideS    = Math.max(0, g.time_gap_s - stopS);
+  const rideMin  = (rideS/60).toFixed(1);
+  const speedKmh = rideS > 0 ? ((roadM/rideS)*3.6).toFixed(1) : '0.0';
+  const distKm   = (roadM/1000).toFixed(2);
+  document.getElementById(`preview-${i}`).innerHTML = `
+    <div class="preview-title">What will be written</div>
+    <div class="preview-row"><span class="preview-key">Stop time</span><span class="preview-val">${stopMin.toFixed(1)} min</span></div>
+    <div class="preview-row"><span class="preview-key">Riding time</span><span class="preview-val">${rideMin} min</span></div>
+    <div class="preview-row"><span class="preview-key">Road distance</span><span class="preview-val">${distKm} km</span></div>
+    <div class="preview-row"><span class="preview-key">Implied speed</span><span class="preview-val">${speedKmh} km/h <span class="preview-ref">(30-min avg: ${g.avg_speed_kmh.toFixed(1)} km/h)</span></span></div>
+  `;
+}
+
+function updateRepairButton() {
+  const any = [...document.querySelectorAll('.gap-checkbox')].some(cb => cb.checked);
+  repairSect.style.display = any ? 'block' : 'none';
+}
+
+// ── Repair ────────────────────────────────────────────────────────────────────
+btnRepair.addEventListener('click', async () => {
+  if (!currentFile || !analysisData) return;
+
+  const params = analysisData.gaps.map((g, i) => {
+    const cb    = document.querySelector(`.gap-checkbox[data-idx="${i}"]`);
+    const state = gapMaps[i];
+    // Use snapped/drawn route coords if available
+    let routeCoords = null;
+    if (state && state.routeCoords) routeCoords = state.routeCoords;
+    else if (state && state.waypoints.length > 0) {
+      routeCoords = [[g.lat_before, g.lon_before], ...state.waypoints, [g.lat_after, g.lon_after]];
+    }
+    return {
+      include:        cb ? cb.checked : false,
+      stop_s:         parseFloat(document.getElementById(`stop-${i}`)?.value || 0) * 60,
+      road_distance_m: parseFloat(document.getElementById(`dist-${i}`)?.value || g.gps_gap_m),
+      route_coords:   routeCoords,
+    };
+  });
+
+  btnRepair.disabled = true;
+  btnRepair.innerHTML = '<span class="spinner"></span>Uploading for repair…';
+  resultSect.style.display = 'none'; clearStatus();
+
+  const fd = new FormData();
+  fd.append('file', currentFile);
+  fd.append('params', JSON.stringify(params));
+
+  let jobId;
+  try {
+    const res = await fetch(`${API}/repair`, { method:'POST', body:fd });
+    const d = await res.json();
+    if (!res.ok) throw new Error(d.error || `HTTP ${res.status}`);
+    jobId = d.job_id;
+  } catch(err) {
+    setStatus(`Repair failed: ${err.message}`, 'error');
+    btnRepair.disabled = false; btnRepair.textContent = 'Repair FIT file'; return;
+  }
+
+  btnRepair.innerHTML = '<span class="spinner"></span>Repairing…';
+
+  pollJob(jobId,
+    data => {
+      btnRepair.disabled = false; btnRepair.textContent = 'Repair FIT file';
+      document.getElementById('r-orig').textContent  = (data.original_dist_km ?? '?') + ' km';
+      document.getElementById('r-added').textContent = '+' + (data.added_dist_km ?? '?') + ' km';
+      document.getElementById('r-total').textContent = (data.new_dist_km ?? '?') + ' km';
+      btnDl.href = `${API}/download/${jobId}`;
+      btnDl.download = data.out_name || 'repaired.fit';
+      btnDl.textContent = `⬇ Download ${data.out_name || 'repaired.fit'}`;
+      resultSect.style.display = 'block';
+      resultSect.scrollIntoView({ behavior:'smooth', block:'nearest' });
+    },
+    err => {
+      btnRepair.disabled = false; btnRepair.textContent = 'Repair FIT file';
+      setStatus(`Repair failed: ${err}`, 'error');
+    }
+  );
+});
 </script>
 </body>
 </html>
