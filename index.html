@@ -369,9 +369,9 @@ function renderGaps(gaps) {
     updatePreview(i, g);
 
     // Snap & clear buttons
-    document.getElementById(`propose-btn-${i}`).addEventListener('click', () => proposeRoute(i, g));
-    document.getElementById(`snap-btn-${i}`).addEventListener('click', () => snapToRoad(i, g));
-    document.getElementById(`clear-btn-${i}`).addEventListener('click', () => clearWaypoints(i, g));
+    card.querySelector('.map-propose-btn').addEventListener('click', () => proposeRoute(i, g));
+    card.querySelector('.map-snap-btn').addEventListener('click', () => snapToRoad(i, g));
+    card.querySelector('.map-clear-btn').addEventListener('click', () => clearWaypoints(i, g));
 
     // Init map for recording gaps (already visible)
     if (isRecGap) setTimeout(() => initMap(i, g), 100);
