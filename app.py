@@ -141,7 +141,7 @@ def gap_analysis(records, gap):
 
 # ── Synthetic records ─────────────────────────────────────────────────────────
 
-def build_synthetic_records(records, gap, stop_time_s, road_distance_m, avg_speed_ms, pre_avgs, route_coords=None):
+def build_synthetic_records(records, gap, stop_time_s, road_distance_m, avg_speed_ms, pre_avgs, route_coords=None, elev_coords=None, power_override=None, cadence_override=None):
     r0 = records[gap['idx_before']]
     r1 = records[gap['idx_after']]
 
@@ -182,6 +182,36 @@ def build_synthetic_records(records, gap, stop_time_s, road_distance_m, avg_spee
             f = linear_frac
             return lat0+f*(lat1-lat0), lon0+f*(lon1-lon0)
 
+    # Elevation interpolator
+    # elev_coords: list of [lon, lat, elev] from ORS elevation API
+    alt0 = records[gap['idx_before']].get('altitude') or 0
+    alt1 = records[gap['idx_after']].get('altitude') or 0
+    if elev_coords and len(elev_coords) >= 2:
+        # Build cumulative distance along elevation path
+        elev_alts = [c[2] for c in elev_coords]
+        elev_latlons = [[c[1], c[0]] for c in elev_coords]
+        elev_cum = [0.0]
+        for j in range(1, len(elev_latlons)):
+            p0, p1 = elev_latlons[j-1], elev_latlons[j]
+            elev_cum.append(elev_cum[-1] + haversine_m(p0[0],p0[1],p1[0],p1[1]))
+        elev_total = elev_cum[-1]
+        def get_alt(ride_frac):
+            if elev_total <= 0: return alt0 + ride_frac*(alt1-alt0)
+            target = ride_frac * elev_total
+            for j in range(1, len(elev_cum)):
+                if elev_cum[j] >= target or j == len(elev_cum)-1:
+                    sf = (target-elev_cum[j-1]) / max(1e-9, elev_cum[j]-elev_cum[j-1])
+                    sf = max(0.0, min(1.0, sf))
+                    return elev_alts[j-1] + sf*(elev_alts[j]-elev_alts[j-1])
+            return elev_alts[-1]
+    else:
+        def get_alt(ride_frac):
+            return alt0 + ride_frac*(alt1-alt0)
+
+    # Use overrides if provided, else pre-gap averages
+    pwr_val = power_override   if power_override   is not None else pre_avgs.get('power')
+    cad_val = cadence_override if cadence_override is not None else pre_avgs.get('cadence')
+
     synth = []
     t0_ms = r0['timestamp_unix_ms']
     for i in range(1, n + 1):
@@ -195,9 +225,9 @@ def build_synthetic_records(records, gap, stop_time_s, road_distance_m, avg_spee
             'distance': dist_start + ride_frac * road_distance_m,
             'speed': effective_speed_ms if i > stop_time_s else 0.0,
             'heart_rate': pre_avgs.get('heart_rate'),
-            'power': pre_avgs.get('power'),
-            'cadence': pre_avgs.get('cadence'),
-            'altitude': pre_avgs.get('altitude'),
+            'power': pwr_val,
+            'cadence': cad_val,
+            'altitude': get_alt(ride_frac),
             'temperature': pre_avgs.get('temperature'),
         })
     return synth, road_distance_m
@@ -400,9 +430,13 @@ def run_repair(job_id, data, filename, params):
             avg_speed_ms = analysis['avg_speed_ms']
             pre_avgs = {k: analysis[k] for k in ('heart_rate','power','cadence','altitude','temperature')}
 
-            route_coords = params[gi].get('route_coords')
+            route_coords     = params[gi].get('route_coords')
+            elev_coords      = params[gi].get('elev_coords')
+            power_override   = params[gi].get('power_override')
+            cadence_override = params[gi].get('cadence_override')
             synth, added_m = build_synthetic_records(
-                merged, gap, stop_s, road_distance_m, avg_speed_ms, pre_avgs, route_coords)
+                merged, gap, stop_s, road_distance_m, avg_speed_ms, pre_avgs,
+                route_coords, elev_coords, power_override, cadence_override)
 
             for j in range(gap['idx_after'], len(merged)):
                 if merged[j].get('distance') is not None:

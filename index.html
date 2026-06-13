@@ -101,6 +101,15 @@
   .written-vals{background:#f9fafb;border:1px solid var(--border);border-radius:6px;padding:10px 12px}
   .written-vals .wv-title{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin-bottom:7px}
   .wv-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:6px}
+  .elev-section{margin-bottom:12px;padding:10px 12px;background:#f9fafb;border:1px solid var(--border);border-radius:6px}
+  .elev-toggle{display:flex;align-items:center;gap:8px;cursor:pointer;font-size:13px;font-weight:500;color:var(--text-2)}
+  .elev-toggle input[type=checkbox]{width:15px;height:15px;accent-color:var(--accent);cursor:pointer;flex-shrink:0}
+  .elev-detail{margin-top:8px;font-size:12px;color:var(--muted);font-family:var(--mono);display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+  .elev-stat{display:flex;flex-direction:column;gap:1px}
+  .elev-stat-val{font-size:14px;font-weight:500;color:var(--text)}
+  .elev-stat-key{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em}
+  .elev-up{color:var(--ok)}
+  .elev-dn{color:var(--err)}
   .wv-item{text-align:center}
   .wv-val{font-family:var(--mono);font-size:12px;font-weight:500}
   .wv-key{font-size:10px;color:var(--muted);margin-top:1px}
@@ -288,11 +297,9 @@ function renderGaps(gaps) {
     card.dataset.idx = i;
 
     const wvCells = [
-      {k:'HR',   v: g.heart_rate   ? Math.round(g.heart_rate)+' bpm' : '—'},
-      {k:'Power', v: g.power       ? Math.round(g.power)+' W'        : '—'},
-      {k:'Cadence',v: g.cadence    ? Math.round(g.cadence)+' rpm'    : '—'},
-      {k:'Alt',  v: g.altitude!=null? g.altitude.toFixed(0)+' m'     : '—'},
-      {k:'Temp', v: g.temperature!=null? g.temperature.toFixed(0)+'°C':'—'},
+      {k:'HR',   v: g.heart_rate      ? Math.round(g.heart_rate)+' bpm'    : '—'},
+      {k:'Alt',  v: g.altitude != null ? g.altitude.toFixed(0)+' m'        : '—'},
+      {k:'Temp', v: g.temperature!=null? g.temperature.toFixed(0)+'°C'     : '—'},
     ].map(c=>`<div class="wv-item"><div class="wv-val">${c.v}</div><div class="wv-key">${c.k}</div></div>`).join('');
 
     card.innerHTML = `
@@ -321,10 +328,32 @@ function renderGaps(gaps) {
                 <input type="number" id="dist-${i}" class="inp-dist" data-idx="${i}"
                   min="0" step="10" value="${Math.round(g.gps_gap_m)}">
               </div>
+              <div>
+                <label class="field-label">Power (W)</label>
+                <span class="field-hint">Pre-gap avg: ${g.power ? Math.round(g.power)+' W' : '—'}</span>
+                <input type="number" id="pwr-${i}" class="inp-pwr" data-idx="${i}"
+                  min="0" max="2000" step="1" value="${g.power ? Math.round(g.power) : 0}">
+              </div>
+              <div>
+                <label class="field-label">Cadence (rpm)</label>
+                <span class="field-hint">Pre-gap avg: ${g.cadence ? Math.round(g.cadence)+' rpm' : '—'}</span>
+                <input type="number" id="cad-${i}" class="inp-cad" data-idx="${i}"
+                  min="0" max="200" step="1" value="${g.cadence ? Math.round(g.cadence) : 0}">
+              </div>
+            </div>
+            <div class="elev-section" id="elev-section-${i}">
+              <label class="elev-toggle">
+                <input type="checkbox" id="elev-cb-${i}" class="elev-cb">
+                <span>Apply elevation profile from map route</span>
+              </label>
+              <div class="elev-detail" id="elev-detail-${i}" style="display:none">
+                <span class="spinner" id="elev-spinner-${i}" style="display:none"></span>
+                <span id="elev-status-${i}"></span>
+              </div>
             </div>
             <div class="live-preview" id="preview-${i}"></div>
             <div class="written-vals">
-              <div class="wv-title">Synthetic record values (50 records before gap)</div>
+              <div class="wv-title">Fixed values written (50 records before gap) — power &amp; cadence editable above</div>
               <div class="wv-grid">${wvCells}</div>
             </div>
           </div>
@@ -372,6 +401,14 @@ function renderGaps(gaps) {
     card.querySelector('.map-propose-btn').addEventListener('click', () => proposeRoute(i, g));
     card.querySelector('.map-snap-btn').addEventListener('click', () => snapToRoad(i, g));
     card.querySelector('.map-clear-btn').addEventListener('click', () => clearWaypoints(i, g));
+
+    // Elevation checkbox
+    const elevCb = card.querySelector('.elev-cb');
+    elevCb.addEventListener('change', () => {
+      const detail = document.getElementById(`elev-detail-${i}`);
+      detail.style.display = elevCb.checked ? 'flex' : 'none';
+      if (elevCb.checked) fetchElevation(i, g);
+    });
 
     // Init map for recording gaps (already visible)
     if (isRecGap) setTimeout(() => initMap(i, g), 100);
@@ -656,17 +693,26 @@ btnRepair.addEventListener('click', async () => {
   const params = analysisData.gaps.map((g, i) => {
     const cb    = document.querySelector(`.gap-checkbox[data-idx="${i}"]`);
     const state = gapMaps[i];
-    // Use snapped/drawn route coords if available
     let routeCoords = null;
     if (state && state.routeCoords) routeCoords = state.routeCoords;
     else if (state && state.waypoints.length > 0) {
       routeCoords = [[g.lat_before, g.lon_before], ...state.waypoints, [g.lat_after, g.lon_after]];
     }
+    const elevCb = document.getElementById(`elev-cb-${i}`);
+    let elevCoords = null;
+    if (elevCb && elevCb.checked && state && state.elevations) {
+      elevCoords = state.elevations.coords;
+    }
+    const pwrInp = document.getElementById(`pwr-${i}`);
+    const cadInp = document.getElementById(`cad-${i}`);
     return {
-      include:        cb ? cb.checked : false,
-      stop_s:         parseFloat(document.getElementById(`stop-${i}`)?.value || 0) * 60,
-      road_distance_m: parseFloat(document.getElementById(`dist-${i}`)?.value || g.gps_gap_m),
-      route_coords:   routeCoords,
+      include:          cb ? cb.checked : false,
+      stop_s:           parseFloat(document.getElementById(`stop-${i}`)?.value || 0) * 60,
+      road_distance_m:  parseFloat(document.getElementById(`dist-${i}`)?.value || g.gps_gap_m),
+      route_coords:     routeCoords,
+      elev_coords:      elevCoords,
+      power_override:   pwrInp ? parseFloat(pwrInp.value)  : null,
+      cadence_override: cadInp ? parseFloat(cadInp.value)  : null,
     };
   });
 
