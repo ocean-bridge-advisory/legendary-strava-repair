@@ -5,173 +5,185 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>FIT Gap Repair</title>
 <style>
-  @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@300;400;500&display=swap');
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap');
 
   :root {
-    --bg:        #0d0f12;
-    --surface:   #151920;
-    --border:    #252c38;
-    --accent:    #00d4ff;
-    --accent-dim:#00d4ff22;
-    --warn:      #ff9b3e;
-    --ok:        #3effa0;
-    --text:      #c8d4e0;
-    --muted:     #5a6a7a;
-    --gap-bg:    #1a1200;
-    --gap-border:#3d2a00;
-    --mono: 'IBM Plex Mono', monospace;
-    --sans: 'IBM Plex Sans', system-ui, sans-serif;
+    --bg:         #f4f5f7;
+    --surface:    #ffffff;
+    --border:     #dde1e7;
+    --border-strong: #b0b8c4;
+    --accent:     #2563eb;
+    --accent-bg:  #eff6ff;
+    --warn:       #d97706;
+    --warn-bg:    #fffbeb;
+    --warn-border:#fcd34d;
+    --ok:         #16a34a;
+    --ok-bg:      #f0fdf4;
+    --ok-border:  #86efac;
+    --err:        #dc2626;
+    --err-bg:     #fef2f2;
+    --text:       #111827;
+    --text-2:     #374151;
+    --muted:      #6b7280;
+    --tag-rest:   #e5e7eb;
+    --tag-rest-t: #374151;
+    --tag-gap:    #dbeafe;
+    --tag-gap-t:  #1d4ed8;
+    --mono: 'JetBrains Mono', monospace;
+    --sans: 'Inter', system-ui, sans-serif;
+    --radius: 8px;
+    --shadow: 0 1px 3px rgba(0,0,0,.08), 0 1px 2px rgba(0,0,0,.06);
   }
 
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--text); font-family: var(--sans); font-size: 14px; line-height: 1.6; min-height: 100vh; }
 
-  body {
-    background: var(--bg);
-    color: var(--text);
-    font-family: var(--sans);
-    font-size: 14px;
-    line-height: 1.6;
-    min-height: 100vh;
-  }
+  /* ── Header ── */
+  header { background: var(--surface); border-bottom: 1px solid var(--border); padding: 14px 28px; display: flex; align-items: center; gap: 12px; }
+  .logo { width: 30px; height: 30px; background: var(--accent); border-radius: 6px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+  .logo svg { width: 16px; height: 16px; }
+  header h1 { font-size: 15px; font-weight: 600; color: var(--text); }
+  header span { font-size: 12px; color: var(--muted); margin-left: 4px; }
 
-  header {
-    border-bottom: 1px solid var(--border);
-    padding: 18px 32px;
-    display: flex;
-    align-items: center;
-    gap: 14px;
-  }
+  /* ── Layout ── */
+  main { max-width: 760px; margin: 0 auto; padding: 32px 20px 80px; }
 
-  .logo {
-    width: 32px; height: 32px;
-    background: var(--accent);
-    border-radius: 6px;
-    display: flex; align-items: center; justify-content: center;
-    flex-shrink: 0;
-  }
-  .logo svg { width: 18px; height: 18px; }
-
-  header h1 {
-    font-family: var(--mono);
-    font-size: 15px;
-    font-weight: 600;
-    color: #fff;
-    letter-spacing: 0.02em;
-  }
-  header span {
-    font-family: var(--mono);
-    font-size: 11px;
-    color: var(--muted);
-    margin-left: 2px;
-  }
-
-  main { max-width: 720px; margin: 0 auto; padding: 40px 24px 80px; }
-
+  /* ── Drop zone ── */
   #drop-zone {
-    border: 1.5px dashed var(--border);
-    border-radius: 10px;
-    padding: 56px 24px;
-    text-align: center;
-    cursor: pointer;
-    transition: border-color 0.2s, background 0.2s;
-    position: relative;
+    background: var(--surface); border: 2px dashed var(--border-strong);
+    border-radius: var(--radius); padding: 48px 24px; text-align: center;
+    cursor: pointer; transition: border-color .15s, background .15s; position: relative;
   }
-  #drop-zone:hover, #drop-zone.drag-over {
-    border-color: var(--accent);
-    background: var(--accent-dim);
+  #drop-zone:hover, #drop-zone.drag-over { border-color: var(--accent); background: var(--accent-bg); }
+  #drop-zone input[type="file"] { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
+  #drop-zone .icon { font-size: 32px; display: block; margin-bottom: 10px; }
+  #drop-zone .title { font-weight: 600; font-size: 15px; }
+  #drop-zone p { color: var(--muted); font-size: 13px; margin-top: 4px; }
+
+  /* ── Status ── */
+  #status { display: none; padding: 10px 14px; border-radius: var(--radius); margin-top: 14px; font-size: 13px; }
+  #status.loading { background: var(--accent-bg); border: 1px solid #bfdbfe; color: var(--accent); }
+  #status.error   { background: var(--err-bg); border: 1px solid #fca5a5; color: var(--err); }
+  #status.ok      { background: var(--ok-bg); border: 1px solid var(--ok-border); color: var(--ok); }
+
+  /* ── Summary bar ── */
+  #summary { display: none; margin-top: 20px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px 20px; box-shadow: var(--shadow); }
+  .summary-row { display: flex; gap: 28px; flex-wrap: wrap; }
+  .stat-val { font-family: var(--mono); font-size: 20px; font-weight: 500; color: var(--text); }
+  .stat-label { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: .06em; margin-top: 2px; }
+
+  /* ── Section heading ── */
+  .section-heading { font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); margin: 28px 0 12px; }
+
+  /* ── Gap card ── */
+  .gap-card {
+    background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
+    margin-bottom: 12px; box-shadow: var(--shadow); overflow: hidden;
+    transition: border-color .15s;
   }
-  #drop-zone input[type="file"] {
-    position: absolute; inset: 0; opacity: 0; cursor: pointer;
+  .gap-card.included { border-color: var(--accent); }
+  .gap-card.excluded { opacity: .6; }
+
+  .gap-card-header {
+    display: flex; align-items: center; gap: 10px; padding: 12px 16px;
+    border-bottom: 1px solid var(--border); background: #fafbfc; cursor: pointer;
+    user-select: none;
   }
-  #drop-zone .icon { font-size: 36px; display: block; margin-bottom: 12px; }
-  #drop-zone p { color: var(--muted); font-size: 13px; margin-top: 6px; }
-  #drop-zone strong { color: var(--text); }
+  .gap-card.included .gap-card-header { background: var(--accent-bg); }
 
-  #status {
-    display: none;
-    font-family: var(--mono);
-    font-size: 12px;
-    padding: 10px 14px;
-    border-radius: 6px;
-    margin-top: 16px;
-    border-left: 3px solid var(--muted);
+  .gap-checkbox { width: 17px; height: 17px; accent-color: var(--accent); cursor: pointer; flex-shrink: 0; }
+  .gap-title { font-weight: 600; font-size: 14px; flex: 1; }
+  .gap-tag {
+    font-size: 11px; font-weight: 500; padding: 2px 8px; border-radius: 99px;
   }
-  #status.loading { border-color: var(--accent); color: var(--accent); background: var(--accent-dim); }
-  #status.error   { border-color: #ff4e6a; color: #ff4e6a; background: #ff4e6a18; }
-  #status.ok      { border-color: var(--ok); color: var(--ok); background: #3effa018; }
+  .tag-rest { background: var(--tag-rest); color: var(--tag-rest-t); }
+  .tag-gap  { background: var(--tag-gap);  color: var(--tag-gap-t); }
 
-  #summary { display: none; margin-top: 28px; padding: 16px 20px; background: var(--surface); border: 1px solid var(--border); border-radius: 8px; }
-  .summary-row { display: flex; gap: 32px; flex-wrap: wrap; }
-  .stat { display: flex; flex-direction: column; gap: 2px; }
-  .stat-val { font-family: var(--mono); font-size: 22px; font-weight: 600; color: #fff; }
-  .stat-label { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; }
+  .gap-card-body { padding: 16px; display: none; }
+  .gap-card.included .gap-card-body,
+  .gap-card.excluded .gap-card-body { display: block; }
 
-  #gaps-section { display: none; margin-top: 32px; }
-  #gaps-section h2 { font-family: var(--mono); font-size: 12px; text-transform: uppercase; letter-spacing: 0.1em; color: var(--warn); margin-bottom: 16px; }
+  /* ── Stats row ── */
+  .stats-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 16px; }
+  .stat-box { background: var(--bg); border-radius: 6px; padding: 10px 12px; }
+  .stat-box .val { font-family: var(--mono); font-size: 17px; font-weight: 500; }
+  .stat-box .lbl { font-size: 11px; color: var(--muted); margin-top: 1px; }
 
-  .gap-card { background: var(--gap-bg); border: 1px solid var(--gap-border); border-radius: 10px; padding: 20px; margin-bottom: 14px; }
-  .gap-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 16px; flex-wrap: wrap; gap: 8px; }
-  .gap-title { font-family: var(--mono); font-size: 13px; font-weight: 600; color: var(--warn); }
-  .badge { font-family: var(--mono); font-size: 11px; padding: 2px 8px; border-radius: 4px; background: #1e1600; border: 1px solid var(--gap-border); color: var(--text); }
+  /* ── Input grid ── */
+  .input-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 14px; }
+  .field-label { font-size: 12px; font-weight: 500; color: var(--text-2); margin-bottom: 4px; display: block; }
+  .field-hint  { font-size: 11px; color: var(--muted); margin-bottom: 5px; display: block; }
 
-  .gap-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 18px; }
-  .gap-stat-val { font-family: var(--mono); font-size: 18px; font-weight: 500; color: #fff; }
-  .gap-stat-label { font-size: 11px; color: var(--muted); margin-top: 1px; }
-
-  .gap-inputs { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
-
-  label { display: flex; flex-direction: column; gap: 5px; font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); }
   input[type="number"] {
-    background: var(--bg); border: 1px solid var(--border); border-radius: 5px;
-    color: #fff; font-family: var(--mono); font-size: 15px; padding: 8px 10px; width: 100%;
-    outline: none; transition: border-color 0.15s; -moz-appearance: textfield;
+    width: 100%; padding: 8px 10px; border: 1px solid var(--border); border-radius: 6px;
+    font-family: var(--mono); font-size: 14px; color: var(--text); background: var(--surface);
+    outline: none; transition: border-color .15s; -moz-appearance: textfield;
   }
+  input[type="number"]:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(37,99,235,.1); }
   input[type="number"]::-webkit-outer-spin-button,
   input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; }
-  input[type="number"]:focus { border-color: var(--accent); }
 
-  .gap-estimate { margin-top: 12px; font-family: var(--mono); font-size: 11px; color: var(--muted); padding: 8px 10px; background: var(--bg); border-radius: 4px; border-left: 2px solid var(--accent); }
-  .gap-estimate strong { color: var(--accent); }
-
-  #repair-section { display: none; margin-top: 28px; }
-  #btn-repair {
-    width: 100%; padding: 14px; background: var(--accent); color: #000;
-    font-family: var(--mono); font-size: 14px; font-weight: 600; border: none;
-    border-radius: 7px; cursor: pointer; letter-spacing: 0.04em;
-    transition: opacity 0.15s, transform 0.1s;
+  /* ── Live preview ── */
+  .live-preview {
+    background: var(--accent-bg); border: 1px solid #bfdbfe; border-radius: 6px;
+    padding: 12px 14px; margin-bottom: 14px; font-size: 13px;
   }
-  #btn-repair:hover { opacity: 0.88; }
-  #btn-repair:active { transform: scale(0.99); }
-  #btn-repair:disabled { opacity: 0.4; cursor: not-allowed; }
+  .live-preview .preview-title { font-weight: 600; font-size: 12px; color: var(--accent); text-transform: uppercase; letter-spacing: .06em; margin-bottom: 8px; }
+  .preview-row { display: flex; justify-content: space-between; padding: 3px 0; border-bottom: 1px solid #dbeafe; }
+  .preview-row:last-child { border-bottom: none; }
+  .preview-key { color: var(--muted); }
+  .preview-val { font-family: var(--mono); font-weight: 500; color: var(--text); }
 
-  #result-section { display: none; margin-top: 28px; }
-  .result-box { background: #001a0e; border: 1px solid #00532e; border-radius: 10px; padding: 20px; }
-  .result-box h3 { font-family: var(--mono); font-size: 12px; text-transform: uppercase; letter-spacing: 0.1em; color: var(--ok); margin-bottom: 16px; }
-  .result-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-bottom: 20px; }
+  /* ── Written values (read-only reference) ── */
+  .written-vals {
+    background: #f9fafb; border: 1px solid var(--border); border-radius: 6px;
+    padding: 10px 14px;
+  }
+  .written-vals .wv-title { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); margin-bottom: 8px; }
+  .wv-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; }
+  .wv-item { text-align: center; }
+  .wv-val { font-family: var(--mono); font-size: 13px; font-weight: 500; }
+  .wv-key { font-size: 10px; color: var(--muted); margin-top: 1px; }
+
+  /* ── Repair button ── */
+  #repair-section { display: none; margin-top: 24px; }
+  #btn-repair {
+    width: 100%; padding: 13px; background: var(--accent); color: #fff;
+    font-family: var(--sans); font-size: 14px; font-weight: 600; border: none;
+    border-radius: var(--radius); cursor: pointer; letter-spacing: .01em;
+    transition: background .15s, transform .1s; box-shadow: var(--shadow);
+  }
+  #btn-repair:hover { background: #1d4ed8; }
+  #btn-repair:active { transform: scale(.99); }
+  #btn-repair:disabled { background: #93c5fd; cursor: not-allowed; }
+
+  /* ── Result ── */
+  #result-section { display: none; margin-top: 20px; }
+  .result-box { background: var(--ok-bg); border: 1px solid var(--ok-border); border-radius: var(--radius); padding: 20px; }
+  .result-box h3 { font-size: 13px; font-weight: 600; color: var(--ok); text-transform: uppercase; letter-spacing: .06em; margin-bottom: 16px; }
+  .result-stats { display: grid; grid-template-columns: repeat(3,1fr); gap: 12px; margin-bottom: 18px; }
 
   #btn-download {
-    display: block; width: 100%; padding: 13px; background: transparent; color: var(--ok);
-    font-family: var(--mono); font-size: 13px; font-weight: 600; border: 1.5px solid var(--ok);
-    border-radius: 7px; cursor: pointer; text-align: center; text-decoration: none;
-    letter-spacing: 0.04em; transition: background 0.15s;
+    display: block; width: 100%; padding: 12px; background: var(--ok); color: #fff;
+    font-size: 14px; font-weight: 600; border: none; border-radius: var(--radius);
+    cursor: pointer; text-align: center; text-decoration: none;
+    transition: background .15s; box-shadow: var(--shadow);
   }
-  #btn-download:hover { background: #3effa015; }
-
-  .divider { border: none; border-top: 1px solid var(--border); margin: 28px 0; }
+  #btn-download:hover { background: #15803d; }
 
   .spinner {
     display: inline-block; width: 12px; height: 12px;
     border: 2px solid currentColor; border-top-color: transparent;
-    border-radius: 50%; animation: spin 0.7s linear infinite;
-    margin-right: 7px; vertical-align: middle;
+    border-radius: 50%; animation: spin .7s linear infinite;
+    margin-right: 6px; vertical-align: middle;
   }
   @keyframes spin { to { transform: rotate(360deg); } }
 
-  @media (max-width: 500px) {
-    .gap-stats { grid-template-columns: 1fr 1fr; }
-    .gap-inputs { grid-template-columns: 1fr; }
+  @media (max-width: 520px) {
+    .stats-row { grid-template-columns: 1fr 1fr; }
+    .input-grid { grid-template-columns: 1fr; }
+    .wv-grid { grid-template-columns: repeat(3,1fr); }
     .result-stats { grid-template-columns: 1fr 1fr; }
-    .summary-row { gap: 20px; }
   }
 </style>
 </head>
@@ -179,18 +191,18 @@
 
 <header>
   <div class="logo">
-    <svg viewBox="0 0 18 18" fill="none" xmlns="http://www.w3.org/2000/svg">
-      <path d="M2 9 Q5 3 9 9 Q13 15 16 9" stroke="#000" stroke-width="2.2" stroke-linecap="round" fill="none"/>
+    <svg viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <path d="M1 8 Q4 2 8 8 Q12 14 15 8" stroke="#fff" stroke-width="2" stroke-linecap="round" fill="none"/>
     </svg>
   </div>
-  <h1>FIT Gap Repair <span>for Garmin cycling files</span></h1>
+  <h1>FIT Gap Repair <span>Garmin cycling files</span></h1>
 </header>
 
 <main>
   <div id="drop-zone">
     <input type="file" id="file-input" accept=".fit">
     <span class="icon">📁</span>
-    <strong>Drop a .fit file here</strong>
+    <div class="title">Drop a .fit file here</div>
     <p>or click to browse — Garmin cycling activities only</p>
   </div>
 
@@ -198,20 +210,19 @@
 
   <div id="summary">
     <div class="summary-row">
-      <div class="stat"><span class="stat-val" id="s-records">—</span><span class="stat-label">Records</span></div>
-      <div class="stat"><span class="stat-val" id="s-laps">—</span><span class="stat-label">Laps</span></div>
-      <div class="stat"><span class="stat-val" id="s-dist">—</span><span class="stat-label">Recorded km</span></div>
-      <div class="stat"><span class="stat-val" id="s-gaps">—</span><span class="stat-label">Gaps found</span></div>
+      <div class="stat"><div class="stat-val" id="s-records">—</div><div class="stat-label">Records</div></div>
+      <div class="stat"><div class="stat-val" id="s-laps">—</div><div class="stat-label">Laps</div></div>
+      <div class="stat"><div class="stat-val" id="s-dist">—</div><div class="stat-label">Recorded km</div></div>
+      <div class="stat"><div class="stat-val" id="s-gaps">—</div><div class="stat-label">Events detected</div></div>
     </div>
   </div>
 
-  <div id="gaps-section">
-    <h2 id="gaps-heading">Gaps detected</h2>
+  <div id="gaps-section" style="display:none">
+    <div class="section-heading" id="gaps-heading">Detected gaps</div>
     <div id="gaps-container"></div>
   </div>
 
   <div id="repair-section">
-    <hr class="divider">
     <button id="btn-repair">Repair FIT file</button>
   </div>
 
@@ -219,9 +230,9 @@
     <div class="result-box">
       <h3>✓ File repaired</h3>
       <div class="result-stats">
-        <div class="stat"><span class="stat-val" id="r-orig">—</span><span class="stat-label">Original km</span></div>
-        <div class="stat"><span class="stat-val" id="r-added">—</span><span class="stat-label">Added km</span></div>
-        <div class="stat"><span class="stat-val" id="r-total">—</span><span class="stat-label">Corrected total</span></div>
+        <div class="stat"><div class="stat-val" id="r-orig">—</div><div class="stat-label">Original km</div></div>
+        <div class="stat"><div class="stat-val" id="r-added">—</div><div class="stat-label">Added km</div></div>
+        <div class="stat"><div class="stat-val" id="r-total">—</div><div class="stat-label">Corrected total</div></div>
       </div>
       <a id="btn-download" href="#">⬇ Download repaired .fit</a>
     </div>
@@ -231,27 +242,29 @@
 <script>
   const API = 'https://legendary-strava-repair.onrender.com';
   const POLL_MS = 2000;
-
   let currentFile = null;
   let analysisData = null;
 
-  const dropZone    = document.getElementById('drop-zone');
-  const fileInput   = document.getElementById('file-input');
-  const statusEl    = document.getElementById('status');
-  const summaryEl   = document.getElementById('summary');
-  const gapsSection = document.getElementById('gaps-section');
-  const gapsCont    = document.getElementById('gaps-container');
-  const repairSect  = document.getElementById('repair-section');
-  const btnRepair   = document.getElementById('btn-repair');
-  const resultSect  = document.getElementById('result-section');
-  const btnDownload = document.getElementById('btn-download');
+  // ── DOM refs ──────────────────────────────────────────────────────────────
+  const dropZone   = document.getElementById('drop-zone');
+  const fileInput  = document.getElementById('file-input');
+  const statusEl   = document.getElementById('status');
+  const summaryEl  = document.getElementById('summary');
+  const gapsSect   = document.getElementById('gaps-section');
+  const gapsCont   = document.getElementById('gaps-container');
+  const repairSect = document.getElementById('repair-section');
+  const btnRepair  = document.getElementById('btn-repair');
+  const resultSect = document.getElementById('result-section');
+  const btnDl      = document.getElementById('btn-download');
 
+  // ── Drag & drop ───────────────────────────────────────────────────────────
   dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('drag-over'); });
   dropZone.addEventListener('dragleave', () => dropZone.classList.remove('drag-over'));
-  dropZone.addEventListener('drop', e => { e.preventDefault(); dropZone.classList.remove('drag-over'); const f = e.dataTransfer.files[0]; if (f) handleFile(f); });
+  dropZone.addEventListener('drop', e => { e.preventDefault(); dropZone.classList.remove('drag-over'); if (e.dataTransfer.files[0]) handleFile(e.dataTransfer.files[0]); });
   fileInput.addEventListener('change', () => { if (fileInput.files[0]) handleFile(fileInput.files[0]); });
 
-  function setStatus(msg, type = 'loading') {
+  // ── Status helpers ────────────────────────────────────────────────────────
+  function setStatus(msg, type='loading') {
     statusEl.style.display = 'block';
     statusEl.className = type;
     statusEl.innerHTML = type === 'loading' ? `<span class="spinner"></span>${msg}` : msg;
@@ -260,59 +273,46 @@
 
   function resetUI() {
     summaryEl.style.display = 'none';
-    gapsSection.style.display = 'none';
+    gapsSect.style.display = 'none';
     repairSect.style.display = 'none';
     resultSect.style.display = 'none';
     gapsCont.innerHTML = '';
     analysisData = null;
   }
 
-  // ── Poll until job is done ────────────────────────────────────────────────
+  // ── Poll ──────────────────────────────────────────────────────────────────
   function pollJob(jobId, onDone, onError) {
-    const interval = setInterval(async () => {
+    const iv = setInterval(async () => {
       try {
         const res = await fetch(`${API}/status/${jobId}`);
-        const data = await res.json();
-        if (data.status === 'running') return; // keep polling
-        clearInterval(interval);
-        if (data.status === 'error') {
-          onError(data.error || 'Server error');
-        } else {
-          onDone(data);
-        }
-      } catch (err) {
-        clearInterval(interval);
-        onError(err.message);
-      }
+        const d = await res.json();
+        if (d.status === 'running') return;
+        clearInterval(iv);
+        d.status === 'error' ? onError(d.error || 'Server error') : onDone(d);
+      } catch(err) { clearInterval(iv); onError(err.message); }
     }, POLL_MS);
   }
 
-  // ── Handle file upload ────────────────────────────────────────────────────
+  // ── Handle file ───────────────────────────────────────────────────────────
   async function handleFile(file) {
-    if (!file.name.toLowerCase().endsWith('.fit')) {
-      setStatus('Only .fit files are supported.', 'error'); return;
-    }
+    if (!file.name.toLowerCase().endsWith('.fit')) { setStatus('Only .fit files are supported.', 'error'); return; }
     currentFile = file;
     resetUI();
     setStatus(`Uploading ${file.name}…`);
 
-    const fd = new FormData();
-    fd.append('file', file);
-
+    const fd = new FormData(); fd.append('file', file);
     let jobId;
     try {
-      const res = await fetch(`${API}/analyze`, { method: 'POST', body: fd });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
-      jobId = data.job_id;
-    } catch (err) {
-      setStatus(`Upload failed: ${err.message}`, 'error'); return;
-    }
+      const res = await fetch(`${API}/analyze`, { method:'POST', body:fd });
+      const d = await res.json();
+      if (!res.ok) throw new Error(d.error || `HTTP ${res.status}`);
+      jobId = d.job_id;
+    } catch(err) { setStatus(`Upload failed: ${err.message}`, 'error'); return; }
 
-    setStatus('Analysing file… this may take up to 30 seconds on first run');
+    setStatus('Analysing… may take 20–40 s on first upload');
 
     pollJob(jobId,
-      (data) => {
+      data => {
         analysisData = data;
         document.getElementById('s-records').textContent = data.num_records.toLocaleString();
         document.getElementById('s-laps').textContent    = data.num_laps;
@@ -320,92 +320,145 @@
         document.getElementById('s-gaps').textContent    = data.gaps.length;
         summaryEl.style.display = 'block';
 
-        if (data.gaps.length === 0) {
-          setStatus('No gaps detected — timestamp jumps &gt; 30 s with GPS displacement &gt; 50 m.', 'ok');
-          return;
-        }
+        if (!data.gaps.length) { setStatus('No gaps detected.', 'ok'); return; }
         clearStatus();
         renderGaps(data.gaps);
       },
-      (err) => setStatus(`Analysis failed: ${err}`, 'error')
+      err => setStatus(`Analysis failed: ${err}`, 'error')
     );
   }
 
-  // ── Render gap cards ──────────────────────────────────────────────────────
+  // ── Render gaps ───────────────────────────────────────────────────────────
   function renderGaps(gaps) {
+    const recordingGaps = gaps.filter(g => !g.is_rest_stop).length;
     document.getElementById('gaps-heading').textContent =
-      `${gaps.length} gap${gaps.length > 1 ? 's' : ''} detected`;
+      `${gaps.length} event${gaps.length!==1?'s':''} detected — ${recordingGaps} recording gap${recordingGaps!==1?'s':''}, ${gaps.length-recordingGaps} rest stop${gaps.length-recordingGaps!==1?'s':''}`;
 
     gaps.forEach((g, i) => {
+      const isRecordingGap = !g.is_rest_stop;
       const card = document.createElement('div');
-      card.className = 'gap-card';
+      card.className = `gap-card ${isRecordingGap ? 'included' : 'excluded'}`;
       card.dataset.idx = i;
 
+      const tagClass = isRecordingGap ? 'tag-gap' : 'tag-rest';
+      const tagText  = isRecordingGap ? 'Recording Gap' : 'Rest Stop';
       const timeMins = (g.time_gap_s / 60).toFixed(1);
       const gpsM     = Math.round(g.gps_gap_m);
       const distKm   = g.dist_before_km.toFixed(2);
-      const defSpd   = g.default_speed_kmh.toFixed(1);
+
+      // Written values cells
+      const wvCells = [
+        { key:'HR', val: g.heart_rate ? Math.round(g.heart_rate)+' bpm' : '—' },
+        { key:'Power', val: g.power ? Math.round(g.power)+' W' : '—' },
+        { key:'Cadence', val: g.cadence ? Math.round(g.cadence)+' rpm' : '—' },
+        { key:'Altitude', val: g.altitude != null ? g.altitude.toFixed(0)+' m' : '—' },
+        { key:'Temp', val: g.temperature != null ? g.temperature.toFixed(0)+'°C' : '—' },
+      ].map(c => `<div class="wv-item"><div class="wv-val">${c.val}</div><div class="wv-key">${c.key}</div></div>`).join('');
 
       card.innerHTML = `
-        <div class="gap-header">
-          <span class="gap-title">Gap ${i + 1}</span>
-          <span class="badge">at ${distKm} km</span>
+        <div class="gap-card-header">
+          <input type="checkbox" class="gap-checkbox" data-idx="${i}" ${isRecordingGap ? 'checked' : ''}>
+          <div class="gap-title">Gap ${i+1} — at ${distKm} km</div>
+          <span class="gap-tag ${tagClass}">${tagText}</span>
         </div>
-        <div class="gap-stats">
-          <div><div class="gap-stat-val">${timeMins} min</div><div class="gap-stat-label">Time jump</div></div>
-          <div><div class="gap-stat-val">${gpsM} m</div><div class="gap-stat-label">GPS jump (straight)</div></div>
-          <div><div class="gap-stat-val">${distKm} km</div><div class="gap-stat-label">Position in ride</div></div>
+        <div class="gap-card-body">
+          <div class="stats-row">
+            <div class="stat-box"><div class="val">${timeMins} min</div><div class="lbl">Time jump</div></div>
+            <div class="stat-box"><div class="val">${gpsM} m</div><div class="lbl">GPS jump (straight line)</div></div>
+            <div class="stat-box"><div class="val">${distKm} km</div><div class="lbl">Position in ride</div></div>
+          </div>
+
+          <div class="input-grid">
+            <div>
+              <label class="field-label" for="stop-${i}">Stopped time (minutes)</label>
+              <input type="number" id="stop-${i}" class="inp-stop" data-idx="${i}"
+                min="0" max="${(g.time_gap_s/60).toFixed(1)}" step="0.5" value="0">
+            </div>
+            <div>
+              <label class="field-label" for="dist-${i}">Road distance (metres)</label>
+              <span class="field-hint">Crow-flies: ${gpsM} m — adjust for actual road</span>
+              <input type="number" id="dist-${i}" class="inp-dist" data-idx="${i}"
+                min="0" step="10" value="${gpsM}">
+            </div>
+          </div>
+
+          <div class="live-preview" id="preview-${i}"></div>
+
+          <div class="written-vals">
+            <div class="wv-title">Values written to synthetic records (from 50 records before gap)</div>
+            <div class="wv-grid">${wvCells}</div>
+          </div>
         </div>
-        <div class="gap-inputs">
-          <label>Stopped time (min)
-            <input type="number" class="inp-stop" data-idx="${i}"
-              min="0" max="${(g.time_gap_s / 60).toFixed(1)}" step="0.5" value="0">
-          </label>
-          <label>Speed during gap (km/h)
-            <input type="number" class="inp-speed" data-idx="${i}"
-              min="1" max="80" step="0.5" value="${defSpd}"
-              title="Default = average of surrounding records (${defSpd} km/h)">
-          </label>
-        </div>
-        <div class="gap-estimate" id="est-${i}"></div>
       `;
 
       gapsCont.appendChild(card);
 
-      const stopInp  = card.querySelector('.inp-stop');
-      const speedInp = card.querySelector('.inp-speed');
-      const updateEst = () => updateEstimate(i, g.time_gap_s, stopInp, speedInp);
-      stopInp.addEventListener('input', updateEst);
-      speedInp.addEventListener('input', updateEst);
-      updateEst();
+      // Checkbox toggles included/excluded
+      const cb = card.querySelector('.gap-checkbox');
+      cb.addEventListener('change', () => {
+        card.className = `gap-card ${cb.checked ? 'included' : 'excluded'}`;
+        updateRepairButton();
+      });
+      // Header click toggles checkbox
+      card.querySelector('.gap-card-header').addEventListener('click', e => {
+        if (e.target === cb) return;
+        cb.checked = !cb.checked; cb.dispatchEvent(new Event('change'));
+      });
+
+      // Live update
+      const stopInp = card.querySelector('.inp-stop');
+      const distInp = card.querySelector('.inp-dist');
+      const update  = () => updatePreview(i, g);
+      stopInp.addEventListener('input', update);
+      distInp.addEventListener('input', update);
+      update();
     });
 
-    gapsSection.style.display = 'block';
-    repairSect.style.display  = 'block';
+    gapsSect.style.display = 'block';
+    updateRepairButton();
   }
 
-  function updateEstimate(i, time_gap_s, stopInp, speedInp) {
-    const stopS    = parseFloat(stopInp.value || 0) * 60;
-    const speedKmh = parseFloat(speedInp.value || 25);
-    const rideS    = Math.max(0, time_gap_s - stopS);
-    const distKm   = (rideS * speedKmh / 3600).toFixed(2);
+  function updateRepairButton() {
+    const anyChecked = [...document.querySelectorAll('.gap-checkbox')].some(cb => cb.checked);
+    repairSect.style.display = anyChecked ? 'block' : 'none';
+  }
+
+  function updatePreview(i, g) {
+    const stopMin  = parseFloat(document.getElementById(`stop-${i}`).value || 0);
+    const roadM    = parseFloat(document.getElementById(`dist-${i}`).value || g.gps_gap_m);
+    const stopS    = stopMin * 60;
+    const rideS    = Math.max(0, g.time_gap_s - stopS);
     const rideMin  = (rideS / 60).toFixed(1);
-    document.getElementById(`est-${i}`).innerHTML =
-      `Riding time in gap: <strong>${rideMin} min</strong> at <strong>${speedKmh} km/h</strong> → missing distance: <strong>${distKm} km</strong>`;
+    const speedKmh = rideS > 0 ? ((roadM / rideS) * 3.6).toFixed(1) : '0.0';
+    const distKm   = (roadM / 1000).toFixed(2);
+    const ref30    = g.avg_speed_kmh.toFixed(1);
+
+    document.getElementById(`preview-${i}`).innerHTML = `
+      <div class="preview-title">What will be written</div>
+      <div class="preview-row"><span class="preview-key">Stop time</span><span class="preview-val">${stopMin.toFixed(1)} min</span></div>
+      <div class="preview-row"><span class="preview-key">Riding time in gap</span><span class="preview-val">${rideMin} min</span></div>
+      <div class="preview-row"><span class="preview-key">Road distance</span><span class="preview-val">${distKm} km</span></div>
+      <div class="preview-row"><span class="preview-key">Implied speed</span><span class="preview-val">${speedKmh} km/h <span style="color:var(--muted);font-weight:400">(30-min avg before gap: ${ref30} km/h)</span></span></div>
+    `;
   }
 
   // ── Repair ────────────────────────────────────────────────────────────────
   btnRepair.addEventListener('click', async () => {
     if (!currentFile || !analysisData) return;
 
-    const params = analysisData.gaps.map((_, i) => ({
-      stop_s:   parseFloat(document.querySelector(`.inp-stop[data-idx="${i}"]`).value || 0) * 60,
-      ride_kmh: parseFloat(document.querySelector(`.inp-speed[data-idx="${i}"]`).value || 25),
-    }));
+    const params = analysisData.gaps.map((g, i) => {
+      const cb = document.querySelector(`.gap-checkbox[data-idx="${i}"]`);
+      return {
+        include: cb ? cb.checked : false,
+        stop_s: parseFloat(document.getElementById(`stop-${i}`).value || 0) * 60,
+        road_distance_m: parseFloat(document.getElementById(`dist-${i}`).value || g.gps_gap_m),
+      };
+    });
 
     btnRepair.disabled = true;
     btnRepair.innerHTML = '<span class="spinner"></span>Uploading for repair…';
     resultSect.style.display = 'none';
+    clearStatus();
 
     const fd = new FormData();
     fd.append('file', currentFile);
@@ -413,37 +466,33 @@
 
     let jobId;
     try {
-      const res = await fetch(`${API}/repair`, { method: 'POST', body: fd });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
-      jobId = data.job_id;
-    } catch (err) {
+      const res = await fetch(`${API}/repair`, { method:'POST', body:fd });
+      const d = await res.json();
+      if (!res.ok) throw new Error(d.error || `HTTP ${res.status}`);
+      jobId = d.job_id;
+    } catch(err) {
       setStatus(`Repair failed: ${err.message}`, 'error');
       btnRepair.disabled = false;
       btnRepair.textContent = 'Repair FIT file';
       return;
     }
 
-    btnRepair.innerHTML = '<span class="spinner"></span>Repairing… this may take up to 60 seconds';
+    btnRepair.innerHTML = '<span class="spinner"></span>Repairing…';
 
     pollJob(jobId,
-      (data) => {
+      data => {
         btnRepair.disabled = false;
         btnRepair.textContent = 'Repair FIT file';
-        clearStatus();
-
         document.getElementById('r-orig').textContent  = data.original_dist_km + ' km';
         document.getElementById('r-added').textContent = '+' + data.added_dist_km + ' km';
         document.getElementById('r-total').textContent = data.new_dist_km + ' km';
-
-        btnDownload.href = `${API}/download/${jobId}`;
-        btnDownload.download = data.out_name;
-        btnDownload.textContent = `⬇ Download ${data.out_name}`;
-
+        btnDl.href = `${API}/download/${jobId}`;
+        btnDl.download = data.out_name;
+        btnDl.textContent = `⬇ Download ${data.out_name}`;
         resultSect.style.display = 'block';
-        resultSect.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        resultSect.scrollIntoView({ behavior:'smooth', block:'nearest' });
       },
-      (err) => {
+      err => {
         btnRepair.disabled = false;
         btnRepair.textContent = 'Repair FIT file';
         setStatus(`Repair failed: ${err}`, 'error');
