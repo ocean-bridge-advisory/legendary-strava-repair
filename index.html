@@ -584,7 +584,53 @@ async function orsRoute(profile, coords) {
     throw new Error(err.error?.message || `ORS HTTP ${res.status}`);
   }
   const data = await res.json();
-  return data.features[0].geometry.coordinates.map(c => [c[1], c[0]]);
+  const latLons = data.features[0].geometry.coordinates.map(c => [c[1], c[0]]);
+  if (latLons.length < 2) return latLons;
+
+  const BLEND_M = 10;
+
+  // Blend start: interpolate first BLEND_M metres from exact start toward ORS route
+  const exactStart = [coords[0][1], coords[0][0]];
+  const exactEnd   = [coords[coords.length-1][1], coords[coords.length-1][0]];
+
+  function blendEnd(pts, exactPt) {
+    // Walk backward from end of pts, collecting points within BLEND_M
+    // Linearly interpolate each toward exactPt
+    let cum = 0;
+    for (let k = pts.length - 2; k >= 0; k--) {
+      const d = haversineM(pts[k][0], pts[k][1], pts[k+1][0], pts[k+1][1]);
+      cum += d;
+      if (cum >= BLEND_M) break;
+      // frac: 0 at pts[k+1] (near end), 1 at pts[k] (further from end)
+      const frac = Math.min(cum / BLEND_M, 1);
+      pts[k] = [
+        pts[k][0] + frac * (exactPt[0] - pts[k][0]),
+        pts[k][1] + frac * (exactPt[1] - pts[k][1]),
+      ];
+    }
+    pts[pts.length - 1] = exactPt;
+    return pts;
+  }
+
+  function blendStart(pts, exactPt) {
+    let cum = 0;
+    for (let k = 1; k < pts.length; k++) {
+      const d = haversineM(pts[k-1][0], pts[k-1][1], pts[k][0], pts[k][1]);
+      cum += d;
+      if (cum >= BLEND_M) break;
+      const frac = Math.min(cum / BLEND_M, 1);
+      pts[k] = [
+        pts[k][0] + frac * (exactPt[0] - pts[k][0]),
+        pts[k][1] + frac * (exactPt[1] - pts[k][1]),
+      ];
+    }
+    pts[0] = exactPt;
+    return pts;
+  }
+
+  blendStart(latLons, exactStart);
+  blendEnd(latLons, exactEnd);
+  return latLons;
 }
 
 async function proposeRoute(i, g) {
