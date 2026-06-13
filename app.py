@@ -1,11 +1,17 @@
 """
-FIT Gap Repair — Flask backend (fitdecode edition)
+FIT Gap Repair — Flask backend with async job processing
+Workaround for Render free tier 30s request timeout.
 """
 
 import io
 import json
 import math
+import os
+import tempfile
+import threading
+import time
 import traceback
+import uuid
 
 import fitdecode
 from flask import Flask, jsonify, request, send_file
@@ -28,8 +34,14 @@ CORS(app)
 FIT_EPOCH_OFFSET = 631065600
 SEMICIRCLE_TO_DEG = 180.0 / (2 ** 31)
 
+# In-memory job store: job_id -> job dict
+# Jobs expire after 30 minutes
+JOBS = {}
+JOBS_LOCK = threading.Lock()
+JOB_TTL = 1800  # seconds
 
-# ── Helpers ──────────────────────────────────────────────────────────────────
+
+# ── Helpers ───────────────────────────────────────────────────────────────────
 
 def haversine_m(lat1, lon1, lat2, lon2):
     R = 6_371_000
@@ -41,7 +53,6 @@ def haversine_m(lat1, lon1, lat2, lon2):
 
 
 def gv(frame, name, default=None):
-    """Safe field getter for fitdecode frames."""
     try:
         return frame.get_value(name) if frame.has_field(name) else default
     except Exception:
@@ -49,7 +60,6 @@ def gv(frame, name, default=None):
 
 
 def ts_to_unix_ms(dt):
-    """datetime → Unix epoch milliseconds."""
     if dt is None:
         return None
     import calendar
@@ -62,7 +72,23 @@ def semicircles_to_deg(v):
     return v * SEMICIRCLE_TO_DEG
 
 
-# ── Parse ─────────────────────────────────────────────────────────────────────
+def cleanup_old_jobs():
+    """Remove jobs older than JOB_TTL seconds."""
+    now = time.time()
+    with JOBS_LOCK:
+        expired = [jid for jid, j in JOBS.items() if now - j['created_at'] > JOB_TTL]
+        for jid in expired:
+            # Clean up temp file if present
+            tmp = JOBS[jid].get('tmp_path')
+            if tmp and os.path.exists(tmp):
+                try:
+                    os.unlink(tmp)
+                except Exception:
+                    pass
+            del JOBS[jid]
+
+
+# ── FIT parsing ───────────────────────────────────────────────────────────────
 
 def parse_fit(data: bytes):
     records, laps, session, activity, file_id = [], [], None, None, None
@@ -77,11 +103,10 @@ def parse_fit(data: bytes):
                 ts = gv(frame, 'timestamp')
                 if ts is None:
                     continue
-                ts_ms = ts_to_unix_ms(ts)
                 lat_raw = gv(frame, 'position_lat')
                 lon_raw = gv(frame, 'position_long')
                 records.append({
-                    'timestamp_unix_ms': ts_ms,
+                    'timestamp_unix_ms': ts_to_unix_ms(ts),
                     'lat': semicircles_to_deg(lat_raw),
                     'lon': semicircles_to_deg(lon_raw),
                     'distance': gv(frame, 'distance'),
@@ -130,8 +155,6 @@ def detect_gaps(records, min_time_gap=30, min_gps_gap=50):
     return gaps
 
 
-# ── Surrounding averages ──────────────────────────────────────────────────────
-
 def surrounding_avg(records, idx_before, idx_after, n=50):
     lo = max(0, idx_before - n + 1)
     hi = min(len(records) - 1, idx_after + n - 1)
@@ -143,8 +166,6 @@ def surrounding_avg(records, idx_before, idx_after, n=50):
 
     return {k: avg(k) for k in ('heart_rate', 'power', 'cadence', 'altitude', 'temperature', 'speed')}
 
-
-# ── Synthetic record builder ──────────────────────────────────────────────────
 
 def build_synthetic_records(records, gap, stop_time_s, ride_speed_ms):
     r0 = records[gap['idx_before']]
@@ -180,7 +201,6 @@ def build_synthetic_records(records, gap, stop_time_s, ride_speed_ms):
             'cadence': avgs.get('cadence'),
             'altitude': avgs.get('altitude'),
             'temperature': avgs.get('temperature'),
-            '_synthetic': True,
         })
     return synth, added_distance_m
 
@@ -190,27 +210,25 @@ def build_synthetic_records(records, gap, stop_time_s, ride_speed_ms):
 def write_fit(all_records, laps_raw, session_raw, activity_raw, file_id_raw, added_distances):
     builder = FitFileBuilder(auto_define=True, min_string_size=50)
 
-    # file_id
     fid = FileIdMessage()
     fid.type = FileType.ACTIVITY
     if file_id_raw:
-        mfr = gv(file_id_raw, 'manufacturer')
-        prod = gv(file_id_raw, 'product')
-        sn = gv(file_id_raw, 'serial_number')
+        for attr, cast, setter in [
+            ('manufacturer', lambda v: Manufacturer(int(v)), 'manufacturer'),
+            ('product', int, 'product'),
+            ('serial_number', int, 'serial_number'),
+        ]:
+            v = gv(file_id_raw, attr)
+            if v is not None:
+                try:
+                    setattr(fid, setter, cast(v))
+                except Exception:
+                    pass
         tc = gv(file_id_raw, 'time_created')
-        if mfr is not None:
-            try: fid.manufacturer = Manufacturer(int(mfr))
-            except Exception: pass
-        if prod is not None:
-            try: fid.product = int(prod)
-            except Exception: pass
-        if sn is not None:
-            fid.serial_number = int(sn)
         if tc is not None:
             fid.time_created = ts_to_unix_ms(tc)
     builder.add(fid)
 
-    # start event
     if all_records:
         ev = EventMessage()
         ev.timestamp = all_records[0]['timestamp_unix_ms']
@@ -218,7 +236,6 @@ def write_fit(all_records, laps_raw, session_raw, activity_raw, file_id_raw, add
         ev.event_type = EventType.START
         builder.add(ev)
 
-    # records
     for r in all_records:
         rm = RecordMessage()
         rm.timestamp = r['timestamp_unix_ms']
@@ -233,7 +250,6 @@ def write_fit(all_records, laps_raw, session_raw, activity_raw, file_id_raw, add
         if r.get('temperature') is not None: rm.temperature = int(round(r['temperature']))
         builder.add(rm)
 
-    # stop event
     if all_records:
         ev = EventMessage()
         ev.timestamp = all_records[-1]['timestamp_unix_ms']
@@ -241,7 +257,6 @@ def write_fit(all_records, laps_raw, session_raw, activity_raw, file_id_raw, add
         ev.event_type = EventType.STOP_ALL
         builder.add(ev)
 
-    # laps
     total_added = sum(added_distances.values())
     for lap_raw in laps_raw:
         lm = LapMessage()
@@ -265,15 +280,13 @@ def write_fit(all_records, laps_raw, session_raw, activity_raw, file_id_raw, add
         lm.event_type = EventType.STOP
         builder.add(lm)
 
-    # session
     sm = SessionMessage()
     sm.event = Event.SESSION
     sm.event_type = EventType.STOP
     if all_records:
         sm.start_time = all_records[0]['timestamp_unix_ms']
         sm.timestamp = all_records[-1]['timestamp_unix_ms']
-        elapsed = (all_records[-1]['timestamp_unix_ms'] - all_records[0]['timestamp_unix_ms']) / 1000.0
-        sm.total_elapsed_time = elapsed
+        sm.total_elapsed_time = (all_records[-1]['timestamp_unix_ms'] - all_records[0]['timestamp_unix_ms']) / 1000.0
     if session_raw:
         tt = gv(session_raw, 'total_timer_time')
         if tt is not None: sm.total_timer_time = float(tt)
@@ -283,7 +296,8 @@ def write_fit(all_records, laps_raw, session_raw, activity_raw, file_id_raw, add
                            ('avg_heart_rate', int), ('avg_power', int), ('total_calories', int)]:
             v = gv(session_raw, attr)
             if v is not None:
-                setattr(sm, attr, cast(v))
+                try: setattr(sm, attr, cast(v))
+                except Exception: pass
         sport_val = gv(session_raw, 'sport')
         try: sm.sport = Sport(int(sport_val)) if sport_val is not None else Sport.CYCLING
         except Exception: sm.sport = Sport.CYCLING
@@ -291,7 +305,6 @@ def write_fit(all_records, laps_raw, session_raw, activity_raw, file_id_raw, add
         sm.sport = Sport.CYCLING
     builder.add(sm)
 
-    # activity
     am = ActivityMessage()
     if all_records:
         am.timestamp = all_records[-1]['timestamp_unix_ms']
@@ -305,47 +318,128 @@ def write_fit(all_records, laps_raw, session_raw, activity_raw, file_id_raw, add
     return builder.build().to_bytes()
 
 
+# ── Background workers ────────────────────────────────────────────────────────
+
+def run_analyze(job_id, data):
+    """Parse FIT and detect gaps. Runs in background thread."""
+    try:
+        records, laps_raw, session_raw, _, _ = parse_fit(data)
+        if not records:
+            with JOBS_LOCK:
+                JOBS[job_id]['status'] = 'error'
+                JOBS[job_id]['error'] = 'No record messages found'
+            return
+
+        gaps = detect_gaps(records)
+        original_dist_m = records[-1].get('distance') or 0
+
+        gap_list = []
+        for g in gaps:
+            avgs = surrounding_avg(records, g['idx_before'], g['idx_after'])
+            default_speed_kmh = round((avgs['speed'] or 0) * 3.6, 1) if avgs.get('speed') else 25.0
+            gap_list.append({
+                'idx_before': g['idx_before'],
+                'idx_after': g['idx_after'],
+                'time_gap_s': g['time_gap_s'],
+                'gps_gap_m': round(g['gps_gap_m'], 1),
+                'dist_before_km': round(g['dist_before_m'] / 1000, 2),
+                'default_speed_kmh': default_speed_kmh,
+            })
+
+        with JOBS_LOCK:
+            JOBS[job_id]['status'] = 'done'
+            JOBS[job_id]['result'] = {
+                'num_records': len(records),
+                'num_laps': len(laps_raw),
+                'original_dist_km': round(original_dist_m / 1000, 2),
+                'gaps': gap_list,
+            }
+    except Exception as e:
+        with JOBS_LOCK:
+            JOBS[job_id]['status'] = 'error'
+            JOBS[job_id]['error'] = str(e)
+
+
+def run_repair(job_id, data, filename, params):
+    """Repair FIT file. Runs in background thread."""
+    try:
+        records, laps_raw, session_raw, activity_raw, file_id_raw = parse_fit(data)
+        gaps = detect_gaps(records)
+
+        if len(gaps) != len(params):
+            with JOBS_LOCK:
+                JOBS[job_id]['status'] = 'error'
+                JOBS[job_id]['error'] = f'Gap count mismatch: found {len(gaps)}, got {len(params)} param sets'
+            return
+
+        merged = list(records)
+        added_distances = {}
+
+        for gi in reversed(range(len(gaps))):
+            gap = gaps[gi]
+            stop_s = float(params[gi]['stop_s'])
+            ride_ms = float(params[gi]['ride_kmh']) / 3.6
+            synth, added_m = build_synthetic_records(merged, gap, stop_s, ride_ms)
+
+            for j in range(gap['idx_after'], len(merged)):
+                if merged[j].get('distance') is not None:
+                    merged[j] = dict(merged[j])
+                    merged[j]['distance'] += added_m
+
+            merged = merged[:gap['idx_after']] + synth + merged[gap['idx_after']:]
+            gap_ts_after_ms = records[gap['idx_after']]['timestamp_unix_ms']
+            added_distances[gap_ts_after_ms] = added_m
+
+        original_dist_m = records[-1].get('distance') or 0
+        total_added_m = sum(added_distances.values())
+
+        fit_bytes = write_fit(merged, laps_raw, session_raw, activity_raw, file_id_raw, added_distances)
+
+        # Write to temp file for download
+        tmp = tempfile.NamedTemporaryFile(delete=False, suffix='.fit')
+        tmp.write(fit_bytes)
+        tmp.close()
+
+        out_name = filename.rsplit('.', 1)[0] + '_repaired.fit'
+
+        with JOBS_LOCK:
+            JOBS[job_id]['status'] = 'done'
+            JOBS[job_id]['tmp_path'] = tmp.name
+            JOBS[job_id]['out_name'] = out_name
+            JOBS[job_id]['original_dist_km'] = round(original_dist_m / 1000, 2)
+            JOBS[job_id]['added_dist_km'] = round(total_added_m / 1000, 2)
+            JOBS[job_id]['new_dist_km'] = round((original_dist_m + total_added_m) / 1000, 2)
+
+    except Exception as e:
+        with JOBS_LOCK:
+            JOBS[job_id]['status'] = 'error'
+            JOBS[job_id]['error'] = f'{e}\n{traceback.format_exc()}'
+
+
 # ── Routes ────────────────────────────────────────────────────────────────────
 
 @app.route('/analyze', methods=['POST'])
 def analyze():
+    """Start an analyze job, return job_id immediately."""
     if 'file' not in request.files:
         return jsonify({'error': 'No file uploaded'}), 400
+
     data = request.files['file'].read()
-    try:
-        records, laps_raw, session_raw, _, _ = parse_fit(data)
-    except Exception as e:
-        return jsonify({'error': f'Parse failed: {e}'}), 400
+    job_id = str(uuid.uuid4())
 
-    if not records:
-        return jsonify({'error': 'No record messages found'}), 400
+    with JOBS_LOCK:
+        JOBS[job_id] = {'status': 'running', 'created_at': time.time(), 'type': 'analyze'}
 
-    gaps = detect_gaps(records)
-    original_dist_m = records[-1].get('distance') or 0
+    t = threading.Thread(target=run_analyze, args=(job_id, data), daemon=True)
+    t.start()
 
-    gap_list = []
-    for g in gaps:
-        avgs = surrounding_avg(records, g['idx_before'], g['idx_after'])
-        default_speed_kmh = round((avgs['speed'] or 0) * 3.6, 1) if avgs.get('speed') else 25.0
-        gap_list.append({
-            'idx_before': g['idx_before'],
-            'idx_after': g['idx_after'],
-            'time_gap_s': g['time_gap_s'],
-            'gps_gap_m': round(g['gps_gap_m'], 1),
-            'dist_before_km': round(g['dist_before_m'] / 1000, 2),
-            'default_speed_kmh': default_speed_kmh,
-        })
-
-    return jsonify({
-        'num_records': len(records),
-        'num_laps': len(laps_raw),
-        'original_dist_km': round(original_dist_m / 1000, 2),
-        'gaps': gap_list,
-    })
+    cleanup_old_jobs()
+    return jsonify({'job_id': job_id})
 
 
 @app.route('/repair', methods=['POST'])
 def repair():
+    """Start a repair job, return job_id immediately."""
     if 'file' not in request.files:
         return jsonify({'error': 'No file uploaded'}), 400
     if 'params' not in request.form:
@@ -354,53 +448,67 @@ def repair():
     data = request.files['file'].read()
     filename = request.files['file'].filename or 'activity.fit'
     params = json.loads(request.form['params'])
+    job_id = str(uuid.uuid4())
 
-    try:
-        records, laps_raw, session_raw, activity_raw, file_id_raw = parse_fit(data)
-    except Exception as e:
-        return jsonify({'error': f'Parse failed: {e}'}), 400
+    with JOBS_LOCK:
+        JOBS[job_id] = {'status': 'running', 'created_at': time.time(), 'type': 'repair'}
 
-    gaps = detect_gaps(records)
-    if len(gaps) != len(params):
-        return jsonify({'error': f'Gap count mismatch: found {len(gaps)}, got {len(params)} param sets'}), 400
+    t = threading.Thread(target=run_repair, args=(job_id, data, filename, params), daemon=True)
+    t.start()
 
-    merged = list(records)
-    added_distances = {}
+    cleanup_old_jobs()
+    return jsonify({'job_id': job_id})
 
-    for gi in reversed(range(len(gaps))):
-        gap = gaps[gi]
-        stop_s = float(params[gi]['stop_s'])
-        ride_ms = float(params[gi]['ride_kmh']) / 3.6
-        synth, added_m = build_synthetic_records(merged, gap, stop_s, ride_ms)
 
-        for j in range(gap['idx_after'], len(merged)):
-            if merged[j].get('distance') is not None:
-                merged[j] = dict(merged[j])
-                merged[j]['distance'] += added_m
+@app.route('/status/<job_id>', methods=['GET'])
+def status(job_id):
+    """Poll for job status."""
+    with JOBS_LOCK:
+        job = JOBS.get(job_id)
 
-        merged = merged[:gap['idx_after']] + synth + merged[gap['idx_after']:]
-        gap_ts_after_ms = records[gap['idx_after']]['timestamp_unix_ms']
-        added_distances[gap_ts_after_ms] = added_m
+    if job is None:
+        return jsonify({'status': 'not_found'}), 404
 
-    original_dist_m = records[-1].get('distance') or 0
-    total_added_m = sum(added_distances.values())
+    if job['status'] == 'running':
+        return jsonify({'status': 'running'})
 
-    try:
-        fit_bytes = write_fit(merged, laps_raw, session_raw, activity_raw, file_id_raw, added_distances)
-    except Exception as e:
-        return jsonify({'error': f'FIT write failed: {e}\n{traceback.format_exc()}'}), 500
+    if job['status'] == 'error':
+        return jsonify({'status': 'error', 'error': job.get('error', 'Unknown error')}), 500
 
-    out_name = filename.rsplit('.', 1)[0] + '_repaired.fit'
+    # Done
+    if job.get('type') == 'analyze':
+        return jsonify({'status': 'done', **job['result']})
+    else:
+        # repair — return metadata; file downloaded separately
+        return jsonify({
+            'status': 'done',
+            'original_dist_km': job['original_dist_km'],
+            'added_dist_km': job['added_dist_km'],
+            'new_dist_km': job['new_dist_km'],
+            'out_name': job['out_name'],
+        })
+
+
+@app.route('/download/<job_id>', methods=['GET'])
+def download(job_id):
+    """Download the repaired FIT file."""
+    with JOBS_LOCK:
+        job = JOBS.get(job_id)
+
+    if job is None or job.get('status') != 'done' or job.get('type') != 'repair':
+        return jsonify({'error': 'Job not found or not ready'}), 404
+
+    tmp_path = job.get('tmp_path')
+    out_name = job.get('out_name', 'repaired.fit')
+
+    if not tmp_path or not os.path.exists(tmp_path):
+        return jsonify({'error': 'Output file not found'}), 404
+
     return send_file(
-        io.BytesIO(fit_bytes),
+        tmp_path,
         mimetype='application/octet-stream',
         as_attachment=True,
         download_name=out_name,
-        headers={
-            'X-Original-Dist-Km': str(round(original_dist_m / 1000, 2)),
-            'X-Added-Dist-Km': str(round(total_added_m / 1000, 2)),
-            'X-New-Dist-Km': str(round((original_dist_m + total_added_m) / 1000, 2)),
-        },
     )
 
 

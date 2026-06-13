@@ -34,7 +34,6 @@
     min-height: 100vh;
   }
 
-  /* ── Layout ── */
   header {
     border-bottom: 1px solid var(--border);
     padding: 18px 32px;
@@ -68,7 +67,6 @@
 
   main { max-width: 720px; margin: 0 auto; padding: 40px 24px 80px; }
 
-  /* ── Drop zone ── */
   #drop-zone {
     border: 1.5px dashed var(--border);
     border-radius: 10px;
@@ -85,14 +83,10 @@
   #drop-zone input[type="file"] {
     position: absolute; inset: 0; opacity: 0; cursor: pointer;
   }
-  #drop-zone .icon {
-    font-size: 36px; display: block; margin-bottom: 12px;
-    filter: grayscale(0.4);
-  }
+  #drop-zone .icon { font-size: 36px; display: block; margin-bottom: 12px; }
   #drop-zone p { color: var(--muted); font-size: 13px; margin-top: 6px; }
   #drop-zone strong { color: var(--text); }
 
-  /* ── Status bar ── */
   #status {
     display: none;
     font-family: var(--mono);
@@ -106,209 +100,70 @@
   #status.error   { border-color: #ff4e6a; color: #ff4e6a; background: #ff4e6a18; }
   #status.ok      { border-color: var(--ok); color: var(--ok); background: #3effa018; }
 
-  /* ── File summary ── */
-  #summary {
-    display: none;
-    margin-top: 28px;
-    padding: 16px 20px;
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: 8px;
-    display: none;
-  }
-  .summary-row {
-    display: flex; gap: 32px; flex-wrap: wrap;
-  }
+  #summary { display: none; margin-top: 28px; padding: 16px 20px; background: var(--surface); border: 1px solid var(--border); border-radius: 8px; }
+  .summary-row { display: flex; gap: 32px; flex-wrap: wrap; }
   .stat { display: flex; flex-direction: column; gap: 2px; }
-  .stat-val {
-    font-family: var(--mono);
-    font-size: 22px;
-    font-weight: 600;
-    color: #fff;
-  }
-  .stat-label {
-    font-size: 11px;
-    color: var(--muted);
-    text-transform: uppercase;
-    letter-spacing: 0.06em;
-  }
+  .stat-val { font-family: var(--mono); font-size: 22px; font-weight: 600; color: #fff; }
+  .stat-label { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; }
 
-  /* ── Gap cards ── */
   #gaps-section { display: none; margin-top: 32px; }
-  #gaps-section h2 {
-    font-family: var(--mono);
-    font-size: 12px;
-    text-transform: uppercase;
-    letter-spacing: 0.1em;
-    color: var(--warn);
-    margin-bottom: 16px;
-  }
+  #gaps-section h2 { font-family: var(--mono); font-size: 12px; text-transform: uppercase; letter-spacing: 0.1em; color: var(--warn); margin-bottom: 16px; }
 
-  .gap-card {
-    background: var(--gap-bg);
-    border: 1px solid var(--gap-border);
-    border-radius: 10px;
-    padding: 20px;
-    margin-bottom: 14px;
-  }
+  .gap-card { background: var(--gap-bg); border: 1px solid var(--gap-border); border-radius: 10px; padding: 20px; margin-bottom: 14px; }
+  .gap-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 16px; flex-wrap: wrap; gap: 8px; }
+  .gap-title { font-family: var(--mono); font-size: 13px; font-weight: 600; color: var(--warn); }
+  .badge { font-family: var(--mono); font-size: 11px; padding: 2px 8px; border-radius: 4px; background: #1e1600; border: 1px solid var(--gap-border); color: var(--text); }
 
-  .gap-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: flex-start;
-    margin-bottom: 16px;
-    flex-wrap: wrap;
-    gap: 8px;
-  }
-  .gap-title {
-    font-family: var(--mono);
-    font-size: 13px;
-    font-weight: 600;
-    color: var(--warn);
-  }
-  .gap-badges { display: flex; gap: 8px; flex-wrap: wrap; }
-  .badge {
-    font-family: var(--mono);
-    font-size: 11px;
-    padding: 2px 8px;
-    border-radius: 4px;
-    background: #1e1600;
-    border: 1px solid var(--gap-border);
-    color: var(--text);
-  }
-
-  .gap-stats {
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: 12px;
-    margin-bottom: 18px;
-  }
-  .gap-stat-val {
-    font-family: var(--mono);
-    font-size: 18px;
-    font-weight: 500;
-    color: #fff;
-  }
-  .gap-stat-label {
-    font-size: 11px;
-    color: var(--muted);
-    margin-top: 1px;
-  }
+  .gap-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 18px; }
+  .gap-stat-val { font-family: var(--mono); font-size: 18px; font-weight: 500; color: #fff; }
+  .gap-stat-label { font-size: 11px; color: var(--muted); margin-top: 1px; }
 
   .gap-inputs { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
 
-  label {
-    display: flex;
-    flex-direction: column;
-    gap: 5px;
-    font-size: 11px;
-    text-transform: uppercase;
-    letter-spacing: 0.06em;
-    color: var(--muted);
-  }
+  label { display: flex; flex-direction: column; gap: 5px; font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); }
   input[type="number"] {
-    background: var(--bg);
-    border: 1px solid var(--border);
-    border-radius: 5px;
-    color: #fff;
-    font-family: var(--mono);
-    font-size: 15px;
-    padding: 8px 10px;
-    width: 100%;
-    outline: none;
-    transition: border-color 0.15s;
-    -moz-appearance: textfield;
+    background: var(--bg); border: 1px solid var(--border); border-radius: 5px;
+    color: #fff; font-family: var(--mono); font-size: 15px; padding: 8px 10px; width: 100%;
+    outline: none; transition: border-color 0.15s; -moz-appearance: textfield;
   }
   input[type="number"]::-webkit-outer-spin-button,
   input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; }
   input[type="number"]:focus { border-color: var(--accent); }
 
-  .gap-estimate {
-    margin-top: 12px;
-    font-family: var(--mono);
-    font-size: 11px;
-    color: var(--muted);
-    padding: 8px 10px;
-    background: var(--bg);
-    border-radius: 4px;
-    border-left: 2px solid var(--accent);
-  }
+  .gap-estimate { margin-top: 12px; font-family: var(--mono); font-size: 11px; color: var(--muted); padding: 8px 10px; background: var(--bg); border-radius: 4px; border-left: 2px solid var(--accent); }
   .gap-estimate strong { color: var(--accent); }
 
-  /* ── Repair button ── */
   #repair-section { display: none; margin-top: 28px; }
   #btn-repair {
-    width: 100%;
-    padding: 14px;
-    background: var(--accent);
-    color: #000;
-    font-family: var(--mono);
-    font-size: 14px;
-    font-weight: 600;
-    border: none;
-    border-radius: 7px;
-    cursor: pointer;
-    letter-spacing: 0.04em;
+    width: 100%; padding: 14px; background: var(--accent); color: #000;
+    font-family: var(--mono); font-size: 14px; font-weight: 600; border: none;
+    border-radius: 7px; cursor: pointer; letter-spacing: 0.04em;
     transition: opacity 0.15s, transform 0.1s;
   }
   #btn-repair:hover { opacity: 0.88; }
   #btn-repair:active { transform: scale(0.99); }
   #btn-repair:disabled { opacity: 0.4; cursor: not-allowed; }
 
-  /* ── Result ── */
   #result-section { display: none; margin-top: 28px; }
-  .result-box {
-    background: #001a0e;
-    border: 1px solid #00532e;
-    border-radius: 10px;
-    padding: 20px;
-  }
-  .result-box h3 {
-    font-family: var(--mono);
-    font-size: 12px;
-    text-transform: uppercase;
-    letter-spacing: 0.1em;
-    color: var(--ok);
-    margin-bottom: 16px;
-  }
-  .result-stats {
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: 16px;
-    margin-bottom: 20px;
-  }
+  .result-box { background: #001a0e; border: 1px solid #00532e; border-radius: 10px; padding: 20px; }
+  .result-box h3 { font-family: var(--mono); font-size: 12px; text-transform: uppercase; letter-spacing: 0.1em; color: var(--ok); margin-bottom: 16px; }
+  .result-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-bottom: 20px; }
 
   #btn-download {
-    display: block;
-    width: 100%;
-    padding: 13px;
-    background: transparent;
-    color: var(--ok);
-    font-family: var(--mono);
-    font-size: 13px;
-    font-weight: 600;
-    border: 1.5px solid var(--ok);
-    border-radius: 7px;
-    cursor: pointer;
-    text-align: center;
-    text-decoration: none;
-    letter-spacing: 0.04em;
-    transition: background 0.15s;
+    display: block; width: 100%; padding: 13px; background: transparent; color: var(--ok);
+    font-family: var(--mono); font-size: 13px; font-weight: 600; border: 1.5px solid var(--ok);
+    border-radius: 7px; cursor: pointer; text-align: center; text-decoration: none;
+    letter-spacing: 0.04em; transition: background 0.15s;
   }
   #btn-download:hover { background: #3effa015; }
 
-  /* ── Misc ── */
   .divider { border: none; border-top: 1px solid var(--border); margin: 28px 0; }
 
   .spinner {
-    display: inline-block;
-    width: 12px; height: 12px;
-    border: 2px solid currentColor;
-    border-top-color: transparent;
-    border-radius: 50%;
-    animation: spin 0.7s linear infinite;
-    margin-right: 7px;
-    vertical-align: middle;
+    display: inline-block; width: 12px; height: 12px;
+    border: 2px solid currentColor; border-top-color: transparent;
+    border-radius: 50%; animation: spin 0.7s linear infinite;
+    margin-right: 7px; vertical-align: middle;
   }
   @keyframes spin { to { transform: rotate(360deg); } }
 
@@ -332,8 +187,6 @@
 </header>
 
 <main>
-
-  <!-- Drop zone -->
   <div id="drop-zone">
     <input type="file" id="file-input" accept=".fit">
     <span class="icon">📁</span>
@@ -343,153 +196,142 @@
 
   <div id="status"></div>
 
-  <!-- File summary -->
   <div id="summary">
     <div class="summary-row">
-      <div class="stat">
-        <span class="stat-val" id="s-records">—</span>
-        <span class="stat-label">Records</span>
-      </div>
-      <div class="stat">
-        <span class="stat-val" id="s-laps">—</span>
-        <span class="stat-label">Laps</span>
-      </div>
-      <div class="stat">
-        <span class="stat-val" id="s-dist">—</span>
-        <span class="stat-label">Recorded km</span>
-      </div>
-      <div class="stat">
-        <span class="stat-val" id="s-gaps">—</span>
-        <span class="stat-label">Gaps found</span>
-      </div>
+      <div class="stat"><span class="stat-val" id="s-records">—</span><span class="stat-label">Records</span></div>
+      <div class="stat"><span class="stat-val" id="s-laps">—</span><span class="stat-label">Laps</span></div>
+      <div class="stat"><span class="stat-val" id="s-dist">—</span><span class="stat-label">Recorded km</span></div>
+      <div class="stat"><span class="stat-val" id="s-gaps">—</span><span class="stat-label">Gaps found</span></div>
     </div>
   </div>
 
-  <!-- Gaps -->
   <div id="gaps-section">
     <h2 id="gaps-heading">Gaps detected</h2>
     <div id="gaps-container"></div>
   </div>
 
-  <!-- Repair button -->
   <div id="repair-section">
     <hr class="divider">
     <button id="btn-repair">Repair FIT file</button>
   </div>
 
-  <!-- Result -->
   <div id="result-section">
     <div class="result-box">
       <h3>✓ File repaired</h3>
       <div class="result-stats">
-        <div class="stat">
-          <span class="stat-val" id="r-orig">—</span>
-          <span class="stat-label">Original km</span>
-        </div>
-        <div class="stat">
-          <span class="stat-val" id="r-added">—</span>
-          <span class="stat-label">Added km</span>
-        </div>
-        <div class="stat">
-          <span class="stat-val" id="r-total">—</span>
-          <span class="stat-label">Corrected total</span>
-        </div>
+        <div class="stat"><span class="stat-val" id="r-orig">—</span><span class="stat-label">Original km</span></div>
+        <div class="stat"><span class="stat-val" id="r-added">—</span><span class="stat-label">Added km</span></div>
+        <div class="stat"><span class="stat-val" id="r-total">—</span><span class="stat-label">Corrected total</span></div>
       </div>
       <a id="btn-download" href="#">⬇ Download repaired .fit</a>
     </div>
   </div>
-
 </main>
 
 <script>
-  // ── Config ──────────────────────────────────────────────────
   const API = 'https://legendary-strava-repair.onrender.com';
+  const POLL_MS = 2000;
 
-  // ── State ───────────────────────────────────────────────────
   let currentFile = null;
   let analysisData = null;
 
-  // ── DOM refs ────────────────────────────────────────────────
-  const dropZone     = document.getElementById('drop-zone');
-  const fileInput    = document.getElementById('file-input');
-  const statusEl     = document.getElementById('status');
-  const summaryEl    = document.getElementById('summary');
-  const gapsSection  = document.getElementById('gaps-section');
-  const gapsCont     = document.getElementById('gaps-container');
-  const repairSect   = document.getElementById('repair-section');
-  const btnRepair    = document.getElementById('btn-repair');
-  const resultSect   = document.getElementById('result-section');
-  const btnDownload  = document.getElementById('btn-download');
+  const dropZone    = document.getElementById('drop-zone');
+  const fileInput   = document.getElementById('file-input');
+  const statusEl    = document.getElementById('status');
+  const summaryEl   = document.getElementById('summary');
+  const gapsSection = document.getElementById('gaps-section');
+  const gapsCont    = document.getElementById('gaps-container');
+  const repairSect  = document.getElementById('repair-section');
+  const btnRepair   = document.getElementById('btn-repair');
+  const resultSect  = document.getElementById('result-section');
+  const btnDownload = document.getElementById('btn-download');
 
-  // ── Drop zone ────────────────────────────────────────────────
   dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('drag-over'); });
   dropZone.addEventListener('dragleave', () => dropZone.classList.remove('drag-over'));
-  dropZone.addEventListener('drop', e => {
-    e.preventDefault();
-    dropZone.classList.remove('drag-over');
-    const f = e.dataTransfer.files[0];
-    if (f) handleFile(f);
-  });
-  fileInput.addEventListener('change', () => {
-    if (fileInput.files[0]) handleFile(fileInput.files[0]);
-  });
+  dropZone.addEventListener('drop', e => { e.preventDefault(); dropZone.classList.remove('drag-over'); const f = e.dataTransfer.files[0]; if (f) handleFile(f); });
+  fileInput.addEventListener('change', () => { if (fileInput.files[0]) handleFile(fileInput.files[0]); });
 
-  // ── Status helpers ───────────────────────────────────────────
   function setStatus(msg, type = 'loading') {
     statusEl.style.display = 'block';
     statusEl.className = type;
-    statusEl.innerHTML = type === 'loading'
-      ? `<span class="spinner"></span>${msg}`
-      : msg;
+    statusEl.innerHTML = type === 'loading' ? `<span class="spinner"></span>${msg}` : msg;
   }
   function clearStatus() { statusEl.style.display = 'none'; }
 
-  // ── Handle file upload + analyze ─────────────────────────────
-  async function handleFile(file) {
-    if (!file.name.toLowerCase().endsWith('.fit')) {
-      setStatus('Only .fit files are supported.', 'error'); return;
-    }
-    currentFile = file;
-    analysisData = null;
+  function resetUI() {
     summaryEl.style.display = 'none';
     gapsSection.style.display = 'none';
     repairSect.style.display = 'none';
     resultSect.style.display = 'none';
     gapsCont.innerHTML = '';
+    analysisData = null;
+  }
 
-    setStatus(`Analysing ${file.name}…`);
+  // ── Poll until job is done ────────────────────────────────────────────────
+  function pollJob(jobId, onDone, onError) {
+    const interval = setInterval(async () => {
+      try {
+        const res = await fetch(`${API}/status/${jobId}`);
+        const data = await res.json();
+        if (data.status === 'running') return; // keep polling
+        clearInterval(interval);
+        if (data.status === 'error') {
+          onError(data.error || 'Server error');
+        } else {
+          onDone(data);
+        }
+      } catch (err) {
+        clearInterval(interval);
+        onError(err.message);
+      }
+    }, POLL_MS);
+  }
+
+  // ── Handle file upload ────────────────────────────────────────────────────
+  async function handleFile(file) {
+    if (!file.name.toLowerCase().endsWith('.fit')) {
+      setStatus('Only .fit files are supported.', 'error'); return;
+    }
+    currentFile = file;
+    resetUI();
+    setStatus(`Uploading ${file.name}…`);
 
     const fd = new FormData();
     fd.append('file', file);
 
-    let data;
+    let jobId;
     try {
       const res = await fetch(`${API}/analyze`, { method: 'POST', body: fd });
-      data = await res.json();
+      const data = await res.json();
       if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
+      jobId = data.job_id;
     } catch (err) {
-      setStatus(`Analysis failed: ${err.message}`, 'error'); return;
+      setStatus(`Upload failed: ${err.message}`, 'error'); return;
     }
 
-    analysisData = data;
+    setStatus('Analysing file… this may take up to 30 seconds on first run');
 
-    // Summary
-    document.getElementById('s-records').textContent = data.num_records.toLocaleString();
-    document.getElementById('s-laps').textContent    = data.num_laps;
-    document.getElementById('s-dist').textContent    = data.original_dist_km.toFixed(2);
-    document.getElementById('s-gaps').textContent    = data.gaps.length;
-    summaryEl.style.display = 'block';
+    pollJob(jobId,
+      (data) => {
+        analysisData = data;
+        document.getElementById('s-records').textContent = data.num_records.toLocaleString();
+        document.getElementById('s-laps').textContent    = data.num_laps;
+        document.getElementById('s-dist').textContent    = data.original_dist_km.toFixed(2);
+        document.getElementById('s-gaps').textContent    = data.gaps.length;
+        summaryEl.style.display = 'block';
 
-    if (data.gaps.length === 0) {
-      setStatus('No gaps detected — timestamp jumps &gt; 30 s with GPS displacement &gt; 50 m.', 'ok');
-      return;
-    }
-
-    clearStatus();
-    renderGaps(data.gaps);
+        if (data.gaps.length === 0) {
+          setStatus('No gaps detected — timestamp jumps &gt; 30 s with GPS displacement &gt; 50 m.', 'ok');
+          return;
+        }
+        clearStatus();
+        renderGaps(data.gaps);
+      },
+      (err) => setStatus(`Analysis failed: ${err}`, 'error')
+    );
   }
 
-  // ── Render gap cards ─────────────────────────────────────────
+  // ── Render gap cards ──────────────────────────────────────────────────────
   function renderGaps(gaps) {
     document.getElementById('gaps-heading').textContent =
       `${gaps.length} gap${gaps.length > 1 ? 's' : ''} detected`;
@@ -507,32 +349,19 @@
       card.innerHTML = `
         <div class="gap-header">
           <span class="gap-title">Gap ${i + 1}</span>
-          <div class="gap-badges">
-            <span class="badge">at ${distKm} km</span>
-          </div>
+          <span class="badge">at ${distKm} km</span>
         </div>
         <div class="gap-stats">
-          <div>
-            <div class="gap-stat-val">${timeMins} min</div>
-            <div class="gap-stat-label">Time jump</div>
-          </div>
-          <div>
-            <div class="gap-stat-val">${gpsM} m</div>
-            <div class="gap-stat-label">GPS jump (straight)</div>
-          </div>
-          <div>
-            <div class="gap-stat-val">${distKm} km</div>
-            <div class="gap-stat-label">Position in ride</div>
-          </div>
+          <div><div class="gap-stat-val">${timeMins} min</div><div class="gap-stat-label">Time jump</div></div>
+          <div><div class="gap-stat-val">${gpsM} m</div><div class="gap-stat-label">GPS jump (straight)</div></div>
+          <div><div class="gap-stat-val">${distKm} km</div><div class="gap-stat-label">Position in ride</div></div>
         </div>
         <div class="gap-inputs">
-          <label>
-            Stopped time (min)
+          <label>Stopped time (min)
             <input type="number" class="inp-stop" data-idx="${i}"
               min="0" max="${(g.time_gap_s / 60).toFixed(1)}" step="0.5" value="0">
           </label>
-          <label>
-            Speed during gap (km/h)
+          <label>Speed during gap (km/h)
             <input type="number" class="inp-speed" data-idx="${i}"
               min="1" max="80" step="0.5" value="${defSpd}"
               title="Default = average of surrounding records (${defSpd} km/h)">
@@ -543,7 +372,6 @@
 
       gapsCont.appendChild(card);
 
-      // Attach live update listeners
       const stopInp  = card.querySelector('.inp-stop');
       const speedInp = card.querySelector('.inp-speed');
       const updateEst = () => updateEstimate(i, g.time_gap_s, stopInp, speedInp);
@@ -557,46 +385,38 @@
   }
 
   function updateEstimate(i, time_gap_s, stopInp, speedInp) {
-    const stopS   = parseFloat(stopInp.value || 0) * 60;
+    const stopS    = parseFloat(stopInp.value || 0) * 60;
     const speedKmh = parseFloat(speedInp.value || 25);
-    const rideS   = Math.max(0, time_gap_s - stopS);
-    const rideMs  = speedKmh / 3.6;
-    const distKm  = (rideS * rideMs / 1000).toFixed(2);
-    const rideMin = (rideS / 60).toFixed(1);
-    const el = document.getElementById(`est-${i}`);
-    el.innerHTML = `Riding time in gap: <strong>${rideMin} min</strong> at <strong>${speedKmh} km/h</strong> → missing distance: <strong>${distKm} km</strong>`;
+    const rideS    = Math.max(0, time_gap_s - stopS);
+    const distKm   = (rideS * speedKmh / 3600).toFixed(2);
+    const rideMin  = (rideS / 60).toFixed(1);
+    document.getElementById(`est-${i}`).innerHTML =
+      `Riding time in gap: <strong>${rideMin} min</strong> at <strong>${speedKmh} km/h</strong> → missing distance: <strong>${distKm} km</strong>`;
   }
 
-  // ── Repair ───────────────────────────────────────────────────
+  // ── Repair ────────────────────────────────────────────────────────────────
   btnRepair.addEventListener('click', async () => {
     if (!currentFile || !analysisData) return;
 
-    const params = analysisData.gaps.map((_, i) => {
-      const stopInp  = document.querySelector(`.inp-stop[data-idx="${i}"]`);
-      const speedInp = document.querySelector(`.inp-speed[data-idx="${i}"]`);
-      return {
-        stop_s:   parseFloat(stopInp.value || 0) * 60,
-        ride_kmh: parseFloat(speedInp.value || 25),
-      };
-    });
+    const params = analysisData.gaps.map((_, i) => ({
+      stop_s:   parseFloat(document.querySelector(`.inp-stop[data-idx="${i}"]`).value || 0) * 60,
+      ride_kmh: parseFloat(document.querySelector(`.inp-speed[data-idx="${i}"]`).value || 25),
+    }));
 
     btnRepair.disabled = true;
-    btnRepair.innerHTML = '<span class="spinner"></span>Building repaired file…';
+    btnRepair.innerHTML = '<span class="spinner"></span>Uploading for repair…';
     resultSect.style.display = 'none';
 
     const fd = new FormData();
     fd.append('file', currentFile);
     fd.append('params', JSON.stringify(params));
 
-    let blob, headers;
+    let jobId;
     try {
       const res = await fetch(`${API}/repair`, { method: 'POST', body: fd });
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({ error: `HTTP ${res.status}` }));
-        throw new Error(err.error || `HTTP ${res.status}`);
-      }
-      blob    = await res.blob();
-      headers = res.headers;
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
+      jobId = data.job_id;
     } catch (err) {
       setStatus(`Repair failed: ${err.message}`, 'error');
       btnRepair.disabled = false;
@@ -604,24 +424,31 @@
       return;
     }
 
-    btnRepair.disabled = false;
-    btnRepair.textContent = 'Repair FIT file';
-    clearStatus();
+    btnRepair.innerHTML = '<span class="spinner"></span>Repairing… this may take up to 60 seconds';
 
-    // Result stats from response headers
-    document.getElementById('r-orig').textContent  = (headers.get('x-original-dist-km') || '?') + ' km';
-    document.getElementById('r-added').textContent = '+' + (headers.get('x-added-dist-km') || '?') + ' km';
-    document.getElementById('r-total').textContent = (headers.get('x-new-dist-km') || '?') + ' km';
+    pollJob(jobId,
+      (data) => {
+        btnRepair.disabled = false;
+        btnRepair.textContent = 'Repair FIT file';
+        clearStatus();
 
-    // Download link
-    const url = URL.createObjectURL(blob);
-    const outName = currentFile.name.replace(/\.fit$/i, '_repaired.fit');
-    btnDownload.href = url;
-    btnDownload.download = outName;
-    btnDownload.textContent = `⬇ Download ${outName}`;
+        document.getElementById('r-orig').textContent  = data.original_dist_km + ' km';
+        document.getElementById('r-added').textContent = '+' + data.added_dist_km + ' km';
+        document.getElementById('r-total').textContent = data.new_dist_km + ' km';
 
-    resultSect.style.display = 'block';
-    resultSect.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        btnDownload.href = `${API}/download/${jobId}`;
+        btnDownload.download = data.out_name;
+        btnDownload.textContent = `⬇ Download ${data.out_name}`;
+
+        resultSect.style.display = 'block';
+        resultSect.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      },
+      (err) => {
+        btnRepair.disabled = false;
+        btnRepair.textContent = 'Repair FIT file';
+        setStatus(`Repair failed: ${err}`, 'error');
+      }
+    );
   });
 </script>
 </body>
