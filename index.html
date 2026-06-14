@@ -164,8 +164,13 @@
   <div id="drop-zone">
     <input type="file" id="file-input" accept=".fit">
     <span class="icon">📁</span>
-    <div class="title">Drop a .fit file here</div>
-    <p>or click to browse — Garmin cycling activities only</p>
+    <div class="title">Click to browse</div>
+  </div>
+  <div style="margin-top:10px;display:flex;align-items:center;gap:8px">
+    <input type="checkbox" id="china-mode" style="width:15px;height:15px;accent-color:var(--accent);cursor:pointer">
+    <label for="china-mode" style="font-size:13px;color:var(--muted);cursor:pointer;user-select:none">
+      China map mode — use CDN-backed tiles that load in China
+    </label>
   </div>
 
   <div id="status"></div>
@@ -203,6 +208,30 @@
 
 <script>
 const API     = 'https://legendary-strava-repair.onrender.com';
+
+// China mode tile toggle — reinit all existing maps when changed
+document.addEventListener('DOMContentLoaded', () => {
+  const chinaCb = document.getElementById('china-mode');
+  if (chinaCb) {
+    chinaCb.addEventListener('change', () => {
+      // Destroy and reinit all initialised maps with new tile layer
+      Object.keys(gapMaps).forEach(i => {
+        const state = gapMaps[i];
+        if (!state) return;
+        // Remove old tile layers
+        state.map.eachLayer(layer => {
+          if (layer instanceof L.TileLayer) state.map.removeLayer(layer);
+        });
+        // Add new tile layer
+        const chinaMode = chinaCb.checked;
+        const tileUrl = chinaMode
+          ? 'https://{s}.tile.openstreetmap.fr/osmfr/{z}/{x}/{y}.png'
+          : 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png';
+        L.tileLayer(tileUrl, { attribution: '© OpenStreetMap contributors', maxZoom: 19 }).addTo(state.map);
+      });
+    });
+  }
+});
 const ORS_KEY = 'eyJvcmciOiI1YjNjZTM1OTc4NTExMTAwMDFjZjYyNDgiLCJpZCI6IjBjMWIwN2VjMzg5MjRiM2U4ZGJjNjc0ODUxZGM5YTRlIiwiaCI6Im11cm11cjY0In0=';
 const POLL_MS = 2000;
 
@@ -395,11 +424,22 @@ function renderGaps(gaps) {
       card.className = `gap-card ${cb.checked?'included':'excluded'}`;
       updateRepairButton();
       if (cb.checked) {
-        setTimeout(() => {
-          initMap(i, g);
-          // Invalidate size in case map was init'd while hidden
-          if (gapMaps[i]) gapMaps[i].map.invalidateSize();
-        }, 100);
+        const mapContainer = card.querySelector(`#map-${i}`);
+        if (!gapMaps[i]) {
+          // Not yet init'd — observe for visibility
+          const observer = new IntersectionObserver((entries) => {
+            entries.forEach(entry => {
+              if (entry.isIntersecting) {
+                initMap(i, g);
+                observer.disconnect();
+              }
+            });
+          }, { threshold: 0.1 });
+          observer.observe(mapContainer);
+        } else {
+          // Already init'd — just invalidate size
+          setTimeout(() => gapMaps[i].map.invalidateSize(), 100);
+        }
       }
     });
     card.querySelector('.gap-card-header').addEventListener('click', e => {
@@ -427,9 +467,20 @@ function renderGaps(gaps) {
       if (elevCb.checked) fetchElevation(i, g);
     });
 
-    // Init map for visible (included) gaps immediately
-    // Hidden gaps init on first open via checkbox handler
-    if (isRecGap) setTimeout(() => initMap(i, g), 100 + i * 50);
+    // Use IntersectionObserver to init map only when container scrolls into view
+    // This handles gaps that are off-screen when the page renders
+    if (isRecGap) {
+      const mapContainer = card.querySelector(`#map-${i}`);
+      const observer = new IntersectionObserver((entries) => {
+        entries.forEach(entry => {
+          if (entry.isIntersecting) {
+            initMap(i, g);
+            observer.disconnect();
+          }
+        });
+      }, { threshold: 0.1 });
+      observer.observe(mapContainer);
+    }
   });
 
   gapsSect.style.display = 'block';
@@ -462,12 +513,22 @@ function initMap(i, g) {
 
   const map = L.map(`map-${i}`, { zoomControl: true }).setView([midLat, midLon], zoom);
 
-  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-    attribution: '© OpenStreetMap contributors', maxZoom: 19
-  }).addTo(map);
+  const chinaMode = document.getElementById('china-mode')?.checked;
+  const tileUrl = chinaMode
+    ? 'https://{s}.tile.openstreetmap.fr/osmfr/{z}/{x}/{y}.png'   // France CDN, accessible in China
+    : 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png';
+  const tileAttr = '© OpenStreetMap contributors';
+  L.tileLayer(tileUrl, { attribution: tileAttr, maxZoom: 19 }).addTo(map);
 
-  // Invalidate size after container is fully laid out
-  setTimeout(() => map.invalidateSize(), 200);
+  // Invalidate size once map container is fully painted
+  // Use both a short timeout and a resize observer to catch all layout cases
+  setTimeout(() => map.invalidateSize(), 150);
+  if (typeof ResizeObserver !== 'undefined') {
+    const ro = new ResizeObserver(() => { map.invalidateSize(); });
+    ro.observe(map.getContainer());
+    // Disconnect after first meaningful resize
+    setTimeout(() => ro.disconnect(), 2000);
+  }
 
   // Force crosshair cursor — Leaflet overrides CSS so must be set via JS
   map.getContainer().style.cursor = 'crosshair';
